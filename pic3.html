@@ -525,17 +525,20 @@
                 .attr('class', 'tooltip')
                 .style('opacity', 0);
 
-            // Create time axis circles
-            const hourCircles = [0, 6, 12, 18].map(hour => {
-                return {
-                    hour: hour,
-                    label: hour === 0 ? '12 AM' : hour === 12 ? '12 PM' : hour > 12 ? `${hour - 12} PM` : `${hour} AM`
-                };
-            });
+            // Create fixed position for time labels
+            const timeLabels = [
+                { hour: 0, label: '12 AM', angle: -Math.PI/2 },  // 正上方 (12点位置)
+                { hour: 6, label: '6 AM', angle: 0 },            // 正右方 (3点位置)
+                { hour: 12, label: '12 PM', angle: Math.PI/2 },  // 正下方 (6点位置)
+                { hour: 18, label: '6 PM', angle: Math.PI }      // 正左方 (9点位置)
+            ];
 
             // Draw time circles
-            hourCircles.forEach(({ hour, label }) => {
-                const circleRadius = radius * 0.8 * (hour / 24) + radius * 0.2;
+            const outermostRadius = radius * 0.9;
+
+            // 使用固定的半径绘制时间圈
+            [0.25, 0.5, 0.75, 1.0].forEach((ratio, i) => {
+                const circleRadius = outermostRadius * ratio;
                 svg.append('circle')
                     .attr('r', circleRadius)
                     .attr('class', 'time-circle')
@@ -543,36 +546,36 @@
                     .style('stroke', '#e2e8f0')
                     .style('stroke-dasharray', '2,4')
                     .style('stroke-width', 1);
+            });
 
-                // 修正时间标签位置
-                // 计算标签位置 - 根据小时确定角度
-                let labelX = 0;
-                let labelY = 0;
-                let anchor = 'middle';
+            // 添加时间标签
+            timeLabels.forEach(({ hour, label, angle }) => {
+                // 为标签计算一个固定的偏移量
+                const labelRadius = outermostRadius + 20; // 固定外边距
 
-                if (hour === 0) { // 12 AM - 顶部
-                    labelX = 0;
-                    labelY = -circleRadius - 5;
-                    anchor = 'middle';
-                } else if (hour === 6) { // 6 AM - 右侧
-                    labelX = circleRadius + 5;
-                    labelY = 0;
-                    anchor = 'start';
-                } else if (hour === 12) { // 12 PM - 底部
-                    labelX = 0;
-                    labelY = circleRadius + 15;
-                    anchor = 'middle';
-                } else if (hour === 18) { // 6 PM - 左侧
-                    labelX = -circleRadius - 5;
-                    labelY = 0;
-                    anchor = 'end';
-                }
+                // 计算标签确切位置
+                const x = labelRadius * Math.cos(angle);
+                const y = labelRadius * Math.sin(angle);
+
+                // 确定文本对齐方式
+                let anchor;
+                if (angle === -Math.PI/2) anchor = 'middle';       // 上方
+                else if (angle === 0) anchor = 'start';           // 右方
+                else if (angle === Math.PI/2) anchor = 'middle';  // 下方
+                else if (angle === Math.PI) anchor = 'end';       // 左方
+
+                // 确定垂直对齐方式
+                let baseline;
+                if (angle === -Math.PI/2) baseline = 'baseline';  // 上方
+                else if (angle === Math.PI/2) baseline = 'hanging'; // 下方
+                else baseline = 'middle';  // 左右
 
                 svg.append('text')
-                    .attr('x', labelX)
-                    .attr('y', labelY)
+                    .attr('x', x)
+                    .attr('y', y)
                     .attr('class', 'time-label')
                     .attr('text-anchor', anchor)
+                    .attr('dominant-baseline', baseline)
                     .style('fill', '#718096')
                     .style('font-size', '12px')
                     .text(label);
@@ -646,7 +649,6 @@
                 .range([0.3 * radius, 0.9 * radius]);
 
             // 修正时间比例尺 - 正确映射24小时到360度
-            // 重点修改：将时间映射到正确的角度位置
             const timeScale = d3.scaleTime()
                 .domain([parseTime('00:00:00'), parseTime('23:59:59')])
                 .range([0, 2 * Math.PI]);
