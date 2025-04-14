@@ -94,9 +94,6 @@
             font-weight: 500;
             pointer-events: none;
         }
-        .truncated-label {
-            cursor: pointer;
-        }
         .selected {
             filter: drop-shadow(0 0 5px rgba(0,0,0,0.3));
             opacity: 1 !important;
@@ -170,10 +167,6 @@
             data.forEach(function(d, i) {
                 d.cc_count = +d.cc_count;
                 d.loyalty_count = +d.loyalty_count;
-                // Create short names for potentially long location names
-                d.shortLocation = d.location.length > 15 ?
-                    d.location.substring(0, 12) + '...' :
-                    d.location;
                 location_index[d.location] = i;
             });
 
@@ -382,27 +375,23 @@
                     handleClick(event, d, ccBar);
                 });
 
-            // Use shortened labels for text
+            // 修改标签部分：使用完整地点名称，增加间距以避免重叠
+            const labelRadius = outerRadius + 20; // 增加外边距
+
             svg.selectAll(".location-label")
                 .data(data)
                 .join("text")
-                .attr("class", d => "location-label" + (d.location.length > 15 ? " truncated-label" : ""))
-                .attr("data-full", d => d.location)
+                .attr("class", "location-label")
                 .attr("text-anchor", d => (x(d.location) + x.bandwidth() / 2 + Math.PI) % (2 * Math.PI) < Math.PI ? "end" : "start")
-                .attr("transform", d => {
-                    const angle = (x(d.location) + x.bandwidth() / 2) * 180 / Math.PI - 90;
-                    const radius = outerRadius + 10;
-                    return `rotate(${angle}) translate(${radius},0)`;
-                })
-                .text(d => d.shortLocation)
+                .text(d => d.location) // 使用完整位置名称
                 .attr("dy", "0.35em")
                 .attr("transform", function(d) {
                     const angle = (x(d.location) + x.bandwidth() / 2) * 180 / Math.PI - 90;
-                    const radius = outerRadius + 10;
                     const rotation = (x(d.location) + x.bandwidth() / 2 + Math.PI) % (2 * Math.PI) < Math.PI ? 180 : 0;
-                    return `rotate(${angle}) translate(${radius},0) rotate(${rotation})`;
+                    return `rotate(${angle}) translate(${labelRadius},0) rotate(${rotation})`;
                 })
                 .style("fill", "#555")
+                .style("font-size", "8px") // 减小字体以适应更长的文本
                 .style("cursor", "pointer")
                 .on("mouseover", function(event, d) {
                     d3.select("#cc-bar-" + location_index[d.location]).dispatch("mouseover");
