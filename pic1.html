@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Circular Double-Layer Bar Chart - Transaction Data Analysis</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f8f9fa;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        .container {
+            max-width: 960px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            overflow: hidden;
+            position: relative;
+        }
+        .header {
+            padding: 20px;
+            background: linear-gradient(to right, #1e3c72, #2a5298);
+            color: white;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        .chart-area {
+            padding: 20px;
+            position: relative;
+        }
+        .legend {
+            display: flex;
+            margin-bottom: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-right: 20px;
+            margin-bottom: 10px;
+        }
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            margin-right: 8px;
+            border-radius: 3px;
+        }
+        .tooltip {
+            position: fixed; /* Changed to fixed to ensure proper display even when scrolling */
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 5px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-size: 14px;
+            z-index: 100;
+            max-width: 220px;
+            border: 1px solid #ddd;
+        }
+        .tooltip-location {
+            font-weight: bold;
+            margin-bottom: 5px;
+            word-wrap: break-word;
+        }
+        .tooltip-data {
+            display: flex;
+            flex-direction: column;
+        }
+        .tooltip-data div {
+            margin-bottom: 5px;
+        }
+        svg {
+            display: block;
+            margin: 0 auto;
+            max-width: 100%;
+        }
+        .cc-bar {
+            transition: opacity 0.3s, filter 0.3s;
+        }
+        .lc-bar {
+            transition: opacity 0.3s, filter 0.3s;
+        }
+        .location-label {
+            font-size: 9px;
+            font-weight: 500;
+            pointer-events: none;
+        }
+        .truncated-label {
+            cursor: pointer;
+        }
+        .selected {
+            filter: drop-shadow(0 0 5px rgba(0,0,0,0.3));
+            opacity: 1 !important;
+        }
+        .center-info {
+            text-align: center;
+            margin-bottom: 15px;
+        }
+        .center-circle {
+            fill: #f8f9fa;
+            stroke: #e0e0e0;
+            stroke-width: 1;
+        }
+        /* Mobile optimization */
+        @media (max-width: 768px) {
+            .legend-item {
+                margin-right: 10px;
+            }
+            .tooltip {
+                max-width: 180px;
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Location Transaction Data Comparison</h1>
+        </div>
+        <div class="chart-area">
+            <div class="center-info">
+                <p>This chart shows the comparison between credit card transactions (outer ring - blue) and loyalty card transactions (inner ring - red) at various locations</p>
+            </div>
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-color" style="background: linear-gradient(to right, #48b1f3, #06a3ff);"></div>
+                    <div>Credit Card Transactions (Outer Ring)</div>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: linear-gradient(to right, #ff7676, #f44336);"></div>
+                    <div>Loyalty Card Transactions (Inner Ring)</div>
+                </div>
+            </div>
+            <div id="chart"></div>
+            <div class="tooltip" id="tooltip"></div>
+        </div>
+    </div>
+
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script>
+        let clicked = null;
+        let data;
+        let location_index = {};
+
+        // Set chart dimensions and margins
+        const margin = { top: 50, right: 80, bottom: 50, left: 80 },
+            svgWidth = Math.min(800, window.innerWidth - 40),
+            svgHeight = Math.min(800, window.innerWidth - 40),
+            width = svgWidth - margin.left - margin.right,
+            height = svgHeight - margin.top - margin.bottom,
+            innerRadius = Math.min(width, height) * 0.15,
+            middleRadius = Math.min(width, height) * 0.23,
+            outerRadius = Math.min(width, height) / 2 - 60;
+
+        // Load CSV data
+        d3.csv("data/popularlocationdata.csv").then(function(loadedData) {
+            data = loadedData;
+
+            // Convert strings to numbers
+            data.forEach(function(d, i) {
+                d.cc_count = +d.cc_count;
+                d.loyalty_count = +d.loyalty_count;
+                // Create short names for potentially long location names
+                d.shortLocation = d.location.length > 15 ?
+                    d.location.substring(0, 12) + '...' :
+                    d.location;
+                location_index[d.location] = i;
+            });
+
+            // Sort by credit card transaction count for better visual hierarchy
+            data.sort((a, b) => b.cc_count - a.cc_count);
+
+            // Draw the chart
+            drawChart();
+        }).catch(function(error) {
+            console.error("Error loading data: ", error);
+            document.getElementById("chart").innerHTML =
+                "<p style='text-align:center;color:red;'>Failed to load data. Please ensure the file data/popularlocationdata.csv exists and is accessible.</p>";
+        });
+
+        function drawChart() {
+            // Create SVG
+            const svg = d3.select("#chart")
+                .append("svg")
+                .attr("viewBox", `0 0 ${svgWidth} ${svgHeight}`)
+                .attr("width", "100%")
+                .attr("height", "auto")
+                .attr("preserveAspectRatio", "xMidYMid meet")
+                .append("g")
+                .attr("transform", `translate(${svgWidth / 2}, ${svgHeight / 2})`);
+
+            // Create gradients
+            const defs = svg.append("defs");
+
+            // Credit card gradient (outer ring - blue)
+            const ccGradient = defs.append("radialGradient")
+                .attr("id", "cc-gradient")
+                .attr("gradientUnits", "userSpaceOnUse")
+                .attr("cx", 0)
+                .attr("cy", 0)
+                .attr("r", outerRadius)
+                .attr("spreadMethod", "pad");
+
+            ccGradient.append("stop")
+                .attr("offset", "0%")
+                .attr("stop-color", "#48b1f3");
+
+            ccGradient.append("stop")
+                .attr("offset", "100%")
+                .attr("stop-color", "#06a3ff");
+
+            // Loyalty card gradient (inner ring - red)
+            const lcGradient = defs.append("radialGradient")
+                .attr("id", "lc-gradient")
+                .attr("gradientUnits", "userSpaceOnUse")
+                .attr("cx", 0)
+                .attr("cy", 0)
+                .attr("r", innerRadius)
+                .attr("spreadMethod", "pad");
+
+            lcGradient.append("stop")
+                .attr("offset", "0%")
+                .attr("stop-color", "#f44336");
+
+            lcGradient.append("stop")
+                .attr("offset", "100%")
+                .attr("stop-color", "#ff7676");
+
+            // Create X scale
+            const x = d3.scaleBand()
+                .range([0, 2 * Math.PI])
+                .align(0)
+                .domain(data.map(d => d.location))
+                .padding(0.05);  // Add some padding for clearer bars
+
+            // Create Y scale (outer - credit card)
+            const yCreditCard = d3.scaleRadial()
+                .range([middleRadius, outerRadius])
+                .domain([0, d3.max(data, d => d.cc_count) * 1.1]);
+
+            // Create Y scale (inner - loyalty card) - inverted
+            const yLoyalty = d3.scaleRadial()
+                .range([middleRadius, innerRadius])  // Note the reversed order, for inward growth
+                .domain([0, d3.max(data, d => d.loyalty_count) * 1.1]);
+
+            // Create ticks and reference lines
+            // Outer boundary
+            svg.append("circle")
+                .attr("cx", 0)
+                .attr("cy", 0)
+                .attr("r", outerRadius)
+                .attr("fill", "none")
+                .attr("stroke", "#e0e0e0")
+                .attr("stroke-width", 1);
+
+            // Divider line
+            svg.append("circle")
+                .attr("cx", 0)
+                .attr("cy", 0)
+                .attr("r", middleRadius)
+                .attr("fill", "none")
+                .attr("stroke", "#e0e0e0")
+                .attr("stroke-width", 1.5);
+
+            // Inner boundary
+            svg.append("circle")
+                .attr("cx", 0)
+                .attr("cy", 0)
+                .attr("r", innerRadius)
+                .attr("class", "center-circle");
+
+            // Helper concentric circles - outer ticks
+            const ticksOuter = [0.33, 0.66];
+            ticksOuter.forEach(t => {
+                svg.append("circle")
+                    .attr("cx", 0)
+                    .attr("cy", 0)
+                    .attr("r", middleRadius + (outerRadius - middleRadius) * t)
+                    .attr("fill", "none")
+                    .attr("stroke", "#e0e0e0")
+                    .attr("stroke-width", 0.5)
+                    .attr("stroke-dasharray", "2,2");
+            });
+
+            // Helper concentric circles - inner ticks
+            const ticksInner = [0.33, 0.66];
+            ticksInner.forEach(t => {
+                svg.append("circle")
+                    .attr("cx", 0)
+                    .attr("cy", 0)
+                    .attr("r", innerRadius + (middleRadius - innerRadius) * t)
+                    .attr("fill", "none")
+                    .attr("stroke", "#e0e0e0")
+                    .attr("stroke-width", 0.5)
+                    .attr("stroke-dasharray", "2,2");
+            });
+
+            // Draw the outer bars (credit card transactions - blue)
+            svg.selectAll(".cc-bar")
+                .data(data)
+                .join("path")
+                .attr("class", "cc-bar")
+                .attr("id", d => "cc-bar-" + location_index[d.location])
+                .attr("fill", "url(#cc-gradient)")
+                .attr("d", d3.arc()
+                    .innerRadius(middleRadius)
+                    .outerRadius(d => yCreditCard(d.cc_count))
+                    .startAngle(d => x(d.location))
+                    .endAngle(d => x(d.location) + x.bandwidth())
+                    .padAngle(0.01)
+                    .padRadius(middleRadius))
+                .attr("opacity", 0.8)
+                .attr("stroke", "#fff")
+                .attr("stroke-width", 1)
+                .on("mouseover", function(event, d) {
+                    if (clicked === null) {
+                        d3.select(this).attr("opacity", 1);
+                        d3.select("#lc-bar-" + location_index[d.location]).attr("opacity", 1);
+                    }
+                    showTooltip(event, d);
+                })
+                .on("mousemove", function(event, d) {
+                    updateTooltipPosition(event);
+                })
+                .on("mouseout", function(event, d) {
+                    if (clicked === null || clicked !== this.id) {
+                        d3.select(this).attr("opacity", 0.8);
+                        d3.select("#lc-bar-" + location_index[d.location]).attr("opacity", 0.8);
+                    }
+                    hideTooltip();
+                })
+                .on("click", function(event, d) {
+                    handleClick(event, d, this);
+                });
+
+            // Draw the inner bars (loyalty card transactions - red)
+            svg.selectAll(".lc-bar")
+                .data(data)
+                .join("path")
+                .attr("class", "lc-bar")
+                .attr("id", d => "lc-bar-" + location_index[d.location])
+                .attr("fill", "url(#lc-gradient)")
+                .attr("d", d3.arc()
+                    .innerRadius(d => yLoyalty(d.loyalty_count))  // Key part - growth inward from middle
+                    .outerRadius(middleRadius)
+                    .startAngle(d => x(d.location))
+                    .endAngle(d => x(d.location) + x.bandwidth())
+                    .padAngle(0.01)
+                    .padRadius(innerRadius))
+                .attr("opacity", 0.8)
+                .attr("stroke", "#fff")
+                .attr("stroke-width", 1)
+                .on("mouseover", function(event, d) {
+                    if (clicked === null) {
+                        d3.select(this).attr("opacity", 1);
+                        d3.select("#cc-bar-" + location_index[d.location]).attr("opacity", 1);
+                    }
+                    showTooltip(event, d);
+                })
+                .on("mousemove", function(event, d) {
+                    updateTooltipPosition(event);
+                })
+                .on("mouseout", function(event, d) {
+                    if (clicked === null || clicked !== this.id) {
+                        d3.select(this).attr("opacity", 0.8);
+                        d3.select("#cc-bar-" + location_index[d.location]).attr("opacity", 0.8);
+                    }
+                    hideTooltip();
+                })
+                .on("click", function(event, d) {
+                    const ccBar = document.getElementById("cc-bar-" + location_index[d.location]);
+                    handleClick(event, d, ccBar);
+                });
+
+            // Use shortened labels for text
+            svg.selectAll(".location-label")
+                .data(data)
+                .join("text")
+                .attr("class", d => "location-label" + (d.location.length > 15 ? " truncated-label" : ""))
+                .attr("data-full", d => d.location)
+                .attr("text-anchor", d => (x(d.location) + x.bandwidth() / 2 + Math.PI) % (2 * Math.PI) < Math.PI ? "end" : "start")
+                .attr("transform", d => {
+                    const angle = (x(d.location) + x.bandwidth() / 2) * 180 / Math.PI - 90;
+                    const radius = outerRadius + 10;
+                    return `rotate(${angle}) translate(${radius},0)`;
+                })
+                .text(d => d.shortLocation)
+                .attr("dy", "0.35em")
+                .attr("transform", function(d) {
+                    const angle = (x(d.location) + x.bandwidth() / 2) * 180 / Math.PI - 90;
+                    const radius = outerRadius + 10;
+                    const rotation = (x(d.location) + x.bandwidth() / 2 + Math.PI) % (2 * Math.PI) < Math.PI ? 180 : 0;
+                    return `rotate(${angle}) translate(${radius},0) rotate(${rotation})`;
+                })
+                .style("fill", "#555")
+                .style("cursor", "pointer")
+                .on("mouseover", function(event, d) {
+                    d3.select("#cc-bar-" + location_index[d.location]).dispatch("mouseover");
+                })
+                .on("mouseout", function(event, d) {
+                    d3.select("#cc-bar-" + location_index[d.location]).dispatch("mouseout");
+                });
+
+            // Add center title and description
+            svg.append("text")
+                .attr("text-anchor", "middle")
+                .attr("dy", "-1.5em")
+                .text("Transaction Data Analysis")
+                .style("font-size", "16px")
+                .style("font-weight", "bold")
+                .style("fill", "#333");
+
+            svg.append("text")
+                .attr("text-anchor", "middle")
+                .attr("dy", "0em")
+                .text("Outer: Credit Card Transactions")
+                .style("font-size", "12px")
+                .style("fill", "#1e88e5");
+
+            svg.append("text")
+                .attr("text-anchor", "middle")
+                .attr("dy", "1.5em")
+                .text("Inner: Loyalty Card Transactions")
+                .style("font-size", "12px")
+                .style("fill", "#e53935");
+
+            // Add credit card total
+            const totalCC = data.reduce((sum, d) => sum + d.cc_count, 0);
+            svg.append("text")
+                .attr("text-anchor", "middle")
+                .attr("dy", "3.5em")
+                .text(`Total Credit Card: ${totalCC}`)
+                .style("font-size", "11px")
+                .style("fill", "#666");
+
+            // Add loyalty card total
+            const totalLoyalty = data.reduce((sum, d) => sum + d.loyalty_count, 0);
+            svg.append("text")
+                .attr("text-anchor", "middle")
+                .attr("dy", "5em")
+                .text(`Total Loyalty Card: ${totalLoyalty}`)
+                .style("font-size", "11px")
+                .style("fill", "#666");
+
+            // Add animation effects
+            svg.selectAll(".cc-bar")
+                .attr("transform", "scale(0.8)")
+                .attr("opacity", 0)
+                .transition()
+                .duration(1000)
+                .attr("transform", "scale(1)")
+                .attr("opacity", 0.8);
+
+            svg.selectAll(".lc-bar")
+                .attr("transform", "scale(0.8)")
+                .attr("opacity", 0)
+                .transition()
+                .duration(1000)
+                .delay(300)
+                .attr("transform", "scale(1)")
+                .attr("opacity", 0.8);
+        }
+
+        // Tooltip functions - improved to adapt to any screen position
+        function showTooltip(event, d) {
+            const tooltip = d3.select("#tooltip");
+            const ratio = (d.loyalty_count / d.cc_count * 100).toFixed(1);
+
+            tooltip.style("opacity", 1);
+            tooltip.html(`
+                <div class="tooltip-location">${d.location}</div>
+                <div class="tooltip-data">
+                    <div>Credit Card: <strong>${d.cc_count}</strong></div>
+                    <div>Loyalty Card: <strong>${d.loyalty_count}</strong></div>
+                </div>
+            `);
+            updateTooltipPosition(event);
+        }
+
+        // Improved tooltip position calculation to ensure complete display even at screen edges
+        function updateTooltipPosition(event) {
+            const tooltip = d3.select("#tooltip");
+            const tooltipNode = tooltip.node();
+
+            if (!tooltipNode) return;
+
+            const tooltipWidth = tooltipNode.offsetWidth;
+            const tooltipHeight = tooltipNode.offsetHeight;
+
+            // Get viewport dimensions
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+
+            // Calculate default position
+            let left = event.clientX + 15;
+            let top = event.clientY - 15;
+
+            // Check and adjust for right edge
+            if (left + tooltipWidth > viewportWidth - 10) {
+                left = event.clientX - tooltipWidth - 15;
+            }
+
+            // Check and adjust for bottom edge
+            if (top + tooltipHeight > viewportHeight - 10) {
+                top = event.clientY - tooltipHeight - 15;
+            }
+
+            // Ensure not outside left edge
+            if (left < 10) {
+                left = 10;
+            }
+
+            // Ensure not outside top edge
+            if (top < 10) {
+                top = 10;
+            }
+
+            tooltip.style("left", left + "px")
+                   .style("top", top + "px");
+        }
+
+        function hideTooltip() {
+            d3.select("#tooltip").style("opacity", 0);
+        }
+
+        // Handle click events
+        function handleClick(event, d, element) {
+            const lcBarId = "lc-bar-" + location_index[d.location];
+            const ccBarId = "cc-bar-" + location_index[d.location];
+
+            if (clicked === null) {
+                // First click
+                d3.selectAll(".cc-bar").attr("opacity", 0.3);
+                d3.selectAll(".lc-bar").attr("opacity", 0.3);
+                d3.select("#" + ccBarId).attr("opacity", 1).classed("selected", true);
+                d3.select("#" + lcBarId).attr("opacity", 1).classed("selected", true);
+                clicked = ccBarId;
+            } else if (clicked === ccBarId) {
+                // Click on same element
+                d3.selectAll(".cc-bar").attr("opacity", 0.8).classed("selected", false);
+                d3.selectAll(".lc-bar").attr("opacity", 0.8).classed("selected", false);
+                clicked = null;
+            } else {
+                // Click on different element
+                d3.selectAll(".cc-bar").attr("opacity", 0.3).classed("selected", false);
+                d3.selectAll(".lc-bar").attr("opacity", 0.3).classed("selected", false);
+                d3.select("#" + ccBarId).attr("opacity", 1).classed("selected", true);
+                d3.select("#" + lcBarId).attr("opacity", 1).classed("selected", true);
+                clicked = ccBarId;
+            }
+        }
+
+        // Add window resize listener to update chart when screen size changes
+        window.addEventListener('resize', function() {
+            // Only re-render when size changes exceed a threshold
+            // This prevents performance issues from frequent redraws
+            clearTimeout(this.resizeTimer);
+            this.resizeTimer = setTimeout(function() {
+                d3.select("#chart svg").remove();
+                drawChart();
+            }, 250);
+        });
+    </script>
+</body>
+</html>

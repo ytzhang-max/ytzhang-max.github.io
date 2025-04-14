@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Credit Card Transaction Visualization</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f9fafb;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            padding: 30px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #2d3748;
+            margin-bottom: 30px;
+            font-weight: 500;
+        }
+
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            margin-bottom: 30px;
+            gap: 20px;
+        }
+
+        .control-group {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        select, .time-range-control {
+            width: 100%;
+            padding: 10px 15px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            background-color: white;
+            color: #4a5568;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        select:focus {
+            border-color: #4299e1;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.2);
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #4a5568;
+            font-size: 14px;
+        }
+
+        .visualization {
+            position: relative;
+            height: 700px;
+            display: flex;
+        }
+
+        .chart-container {
+            flex: 3;
+            position: relative;
+        }
+
+        .sidebar {
+            flex: 1;
+            padding-left: 30px;
+            min-width: 240px;
+        }
+
+        .tooltip {
+            position: absolute;
+            padding: 12px 16px;
+            background: rgba(45, 55, 72, 0.9);
+            color: white;
+            border-radius: 6px;
+            pointer-events: none;
+            font-size: 14px;
+            z-index: 10;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            max-width: 280px;
+            line-height: 1.4;
+        }
+
+        .tooltip h4 {
+            margin: 0 0 8px 0;
+            font-size: 16px;
+            font-weight: 600;
+            color: #9ae6b4;
+        }
+
+        .tooltip p {
+            margin: 4px 0;
+        }
+
+        .legend-title {
+            font-weight: 500;
+            margin-bottom: 15px;
+            font-size: 16px;
+            color: #2d3748;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 12px;
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+
+        .legend-item:hover {
+            background: #f7fafc;
+        }
+
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+            margin-right: 12px;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        .legend-text {
+            font-size: 14px;
+            color: #4a5568;
+        }
+
+        .transaction-point {
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .transaction-point:hover {
+            stroke: white;
+            stroke-width: 2px;
+        }
+
+        .time-axis path, .time-axis line {
+            stroke: #e2e8f0;
+        }
+
+        .time-axis text {
+            fill: #718096;
+            font-size: 12px;
+        }
+
+        .date-circle {
+            fill: none;
+            stroke: #e2e8f0;
+            stroke-width: 1;
+        }
+
+        .summary {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f7fafc;
+            border-radius: 8px;
+        }
+
+        .summary h3 {
+            margin-top: 0;
+            color: #2d3748;
+            font-weight: 500;
+        }
+
+        .stat {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 16px;
+            border-bottom: 1px dashed #e2e8f0;
+            padding-bottom: 10px;
+        }
+
+        .stat:last-child {
+            margin-bottom: 0;
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+
+        .stat-label {
+            color: #718096;
+            font-size: 14px;
+        }
+
+        .stat-value {
+            font-weight: 500;
+            color: #2d3748;
+            font-size: 15px;
+        }
+
+        .inactive {
+            opacity: 0.3;
+        }
+
+        .calendar {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 5px;
+            margin-top: 20px;
+        }
+
+        .calendar-title {
+            font-weight: 500;
+            margin: 20px 0 10px 0;
+            font-size: 16px;
+            color: #2d3748;
+            grid-column: span 7;
+        }
+
+        .calendar-day {
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+            background: #ebf4ff;
+            color: #4a5568;
+        }
+
+        .calendar-day:hover {
+            background: #bee3f8;
+        }
+
+        .calendar-day.active {
+            background: #4299e1;
+            color: white;
+        }
+
+        .center-label {
+            font-size: 14px;
+            font-weight: 500;
+            text-anchor: middle;
+            pointer-events: none;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .visualization {
+                flex-direction: column;
+                height: auto;
+            }
+
+            .sidebar {
+                padding-left: 0;
+                margin-top: 30px;
+            }
+
+            .chart-container {
+                height: 500px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Credit Card Transaction Explorer</h1>
+
+        <div class="controls">
+            <div class="control-group">
+                <label for="location-filter">Location</label>
+                <select id="location-filter">
+                    <option value="all">All Locations</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label for="cc-filter">Credit Card</label>
+                <select id="cc-filter">
+                    <option value="all">All Cards</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label for="type-filter">Category</label>
+                <select id="type-filter">
+                    <option value="all">All Categories</option>
+                    <option value="Travel and Accommodation">Travel & Accommodation</option>
+                    <option value="Miscellaneous">Miscellaneous</option>
+                    <option value="Retail">Retail</option>
+                    <option value="Food and Beverage">Food & Beverage</option>
+                    <option value="Industrial">Industrial</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label for="time-filter">Time of Day</label>
+                <select id="time-filter">
+                    <option value="all">All Times</option>
+                    <option value="morning">Morning (6am-12pm)</option>
+                    <option value="afternoon">Afternoon (12pm-6pm)</option>
+                    <option value="evening">Evening (6pm-12am)</option>
+                    <option value="night">Night (12am-6am)</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="visualization">
+            <div class="chart-container" id="chart"></div>
+
+            <div class="sidebar">
+                <div class="legend-title">Categories</div>
+                <div id="legend"></div>
+
+                <div class="calendar-title">Filter by Date</div>
+                <div id="calendar" class="calendar"></div>
+
+                <div class="summary" id="summary">
+                    <h3>Transaction Summary</h3>
+                    <div id="summary-stats"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Color scheme for categories (a more elegant palette)
+        const colorMap = {
+            "Travel and Accommodation": "#5e85c5", // Blue
+            "Miscellaneous": "#a67db8", // Purple
+            "Retail": "#67c0a9", // Teal
+            "Food and Beverage": "#ef8e6c", // Coral
+            "Industrial": "#eac363" // Gold
+        };
+
+        // Location type mapping (same as original)
+        const loctype = {
+            "Abila Airport": "Travel and Accommodation",
+            "Abila Scrapyard": "Miscellaneous",
+            "Abila Zacharo": "Miscellaneous",
+            "Ahaggo Museum": "Travel and Accommodation",
+            "Albert's Fine Clothing": "Retail",
+            "Bean There Done That": "Food and Beverage",
+            "Brew've Been Served": "Food and Beverage",
+            "Brewed Awakenings": "Food and Beverage",
+            "Carlyle Chemical Inc.": "Industrial",
+            "Chostus Hotel": "Travel and Accommodation",
+            "Coffee Cameleon": "Food and Beverage",
+            "Coffee Shack": "Food and Beverage",
+            "Daily Dealz": "Retail",
+            "Desafio Golf Course": "Travel and Accommodation",
+            "Frank's Fuel": "Miscellaneous",
+            "Frydos Autosupply n' More": "Retail",
+            "Gelatogalore": "Food and Beverage",
+            "General Grocer": "Retail",
+            "Guy's Gyros": "Food and Beverage",
+            "Hallowed Grounds": "Food and Beverage",
+            "Hippokampos": "Food and Beverage",
+            "Jack's Magical Beans": "Food and Beverage",
+            "Kalami Kafenion": "Food and Beverage",
+            "Katerina's Cafe": "Food and Beverage",
+            "Kronos Mart": "Retail",
+            "Kronos Pipe and Irrigation": "Industrial",
+            "Maximum Iron and Steel": "Industrial",
+            "Nationwide Refinery": "Industrial",
+            "Octavio's Office Supplies": "Retail",
+            "Ouzeri Elian": "Food and Beverage",
+            "Roberts and Sons": "Miscellaneous",
+            "Shoppers' Delight": "Retail",
+            "Stewart and Sons Fabrication": "Miscellaneous",
+            "U-Pump": "Miscellaneous"
+        };
+
+        // Global variables
+        let transactions = [];
+        let filteredTransactions = [];
+        let uniqueDates = [];
+        let uniqueLocations = [];
+        let uniqueCards = [];
+        let svg, width, height, radius;
+        let selectedDate = null;
+        let selectedCategory = null;
+        let tooltip;
+
+        // Parse time functions
+        const parseDate = d3.timeParse("%Y-%m-%d");
+        const parseTime = d3.timeParse("%H:%M:%S");
+        const formatTime = d3.timeFormat("%I:%M %p");
+        const formatDate = d3.timeFormat("%b %d, %Y");
+
+        // Load data
+        d3.csv('data/cctime_data.csv').then(data => {
+            // Process data
+            transactions = data.map(d => ({
+                date: d.date,
+                dateObj: parseDate(d.date),
+                time: d.time,
+                timeObj: parseTime(d.time),
+                price: +d.price,
+                last4ccnum: d.last4ccnum,
+                location: d.location,
+                category: loctype[d.location] || "Miscellaneous"
+            }));
+
+            // Extract unique values
+            uniqueDates = Array.from(new Set(transactions.map(d => d.date))).sort();
+            uniqueLocations = Array.from(new Set(transactions.map(d => d.location))).sort();
+            uniqueCards = Array.from(new Set(transactions.map(d => d.last4ccnum))).sort();
+
+            // Initialize filters
+            initializeFilters();
+
+            // Create visualization
+            createVisualization();
+
+            // Initial filtering
+            filterData();
+        });
+
+        function initializeFilters() {
+            // Populate location dropdown
+            const locationSelect = document.getElementById('location-filter');
+            uniqueLocations.forEach(location => {
+                const option = document.createElement('option');
+                option.value = location;
+                option.textContent = location;
+                locationSelect.appendChild(option);
+            });
+
+            // Populate credit card dropdown
+            const ccSelect = document.getElementById('cc-filter');
+            uniqueCards.forEach(card => {
+                const option = document.createElement('option');
+                option.value = card;
+                option.textContent = `Card ending in ${card}`;
+                ccSelect.appendChild(option);
+            });
+
+            // Add event listeners
+            document.querySelectorAll('select').forEach(select => {
+                select.addEventListener('change', filterData);
+            });
+
+            // Create category legend
+            const legend = document.getElementById('legend');
+            Object.keys(colorMap).forEach(category => {
+                const item = document.createElement('div');
+                item.className = 'legend-item';
+                item.innerHTML = `
+                    <div class="legend-color" style="background-color: ${colorMap[category]}"></div>
+                    <div class="legend-text">${category}</div>
+                `;
+                item.addEventListener('click', () => {
+                    if (selectedCategory === category) {
+                        selectedCategory = null;
+                    } else {
+                        selectedCategory = category;
+                    }
+                    updateLegendHighlight();
+                    filterData();
+                });
+                legend.appendChild(item);
+            });
+
+            // Create calendar
+            createCalendar();
+        }
+
+        function createCalendar() {
+            const calendar = document.getElementById('calendar');
+            uniqueDates.forEach(date => {
+                const day = document.createElement('div');
+                day.className = 'calendar-day';
+                // Extract day from date (assuming YYYY-MM-DD format)
+                day.textContent = date.split('-')[2];
+                day.dataset.date = date;
+                day.addEventListener('click', () => {
+                    if (selectedDate === date) {
+                        selectedDate = null;
+                        day.classList.remove('active');
+                    } else {
+                        document.querySelectorAll('.calendar-day.active').forEach(el => {
+                            el.classList.remove('active');
+                        });
+                        selectedDate = date;
+                        day.classList.add('active');
+                    }
+                    filterData();
+                });
+                calendar.appendChild(day);
+            });
+        }
+
+        function createVisualization() {
+            // Create chart container
+            const container = document.getElementById('chart');
+            const containerRect = container.getBoundingClientRect();
+
+            width = containerRect.width;
+            height = containerRect.height;
+
+            radius = Math.min(width, height) / 2 - 60;
+
+            svg = d3.select('#chart')
+                .append('svg')
+                .attr('width', width)
+                .attr('height', height)
+                .append('g')
+                .attr('transform', `translate(${width / 2},${height / 2})`);
+
+            // Create tooltip
+            tooltip = d3.select('body').append('div')
+                .attr('class', 'tooltip')
+                .style('opacity', 0);
+
+            // Create time axis circles
+            const hourCircles = [0, 6, 12, 18].map(hour => {
+                return {
+                    hour: hour,
+                    label: hour === 0 ? '12 AM' : hour === 12 ? '12 PM' : hour > 12 ? `${hour - 12} PM` : `${hour} AM`
+                };
+            });
+
+            // Draw time circles
+            hourCircles.forEach(({ hour, label }) => {
+                const circleRadius = radius * 0.8 * (hour / 24) + radius * 0.2;
+                svg.append('circle')
+                    .attr('r', circleRadius)
+                    .attr('class', 'time-circle')
+                    .style('fill', 'none')
+                    .style('stroke', '#e2e8f0')
+                    .style('stroke-dasharray', '2,4')
+                    .style('stroke-width', 1);
+
+                svg.append('text')
+                    .attr('y', -circleRadius - 5)
+                    .attr('class', 'time-label')
+                    .attr('text-anchor', 'middle')
+                    .style('fill', '#718096')
+                    .style('font-size', '12px')
+                    .text(label);
+            });
+
+            // Add center label
+            svg.append('text')
+                .attr('class', 'center-label')
+                .attr('text-anchor', 'middle')
+                .attr('dy', '0.35em')
+                .text('Time of Day');
+        }
+
+        function filterData() {
+            const locationFilter = document.getElementById('location-filter').value;
+            const ccFilter = document.getElementById('cc-filter').value;
+            const typeFilter = document.getElementById('type-filter').value;
+            const timeFilter = document.getElementById('time-filter').value;
+
+            // Apply filters
+            filteredTransactions = transactions.filter(t => {
+                // Location filter
+                if (locationFilter !== 'all' && t.location !== locationFilter) return false;
+
+                // Credit card filter
+                if (ccFilter !== 'all' && t.last4ccnum !== ccFilter) return false;
+
+                // Category filter
+                if (typeFilter !== 'all' && t.category !== typeFilter) return false;
+
+                // Selected category from legend
+                if (selectedCategory && t.category !== selectedCategory) return false;
+
+                // Date filter
+                if (selectedDate && t.date !== selectedDate) return false;
+
+                // Time of day filter
+                if (timeFilter !== 'all') {
+                    const hour = t.timeObj.getHours();
+                    if (timeFilter === 'morning' && (hour < 6 || hour >= 12)) return false;
+                    if (timeFilter === 'afternoon' && (hour < 12 || hour >= 18)) return false;
+                    if (timeFilter === 'evening' && (hour < 18 || hour >= 24)) return false;
+                    if (timeFilter === 'night' && (hour >= 6 && hour < 24)) return false;
+                }
+
+                return true;
+            });
+
+            updateVisualization();
+            updateSummary();
+        }
+
+        function updateLegendHighlight() {
+            document.querySelectorAll('.legend-item').forEach(item => {
+                const category = item.querySelector('.legend-text').textContent;
+                if (selectedCategory && category !== selectedCategory) {
+                    item.style.opacity = 0.5;
+                } else {
+                    item.style.opacity = 1;
+                }
+            });
+        }
+
+        function updateVisualization() {
+            // Clear existing points
+            svg.selectAll('.transaction-point').remove();
+
+            // Calculate radial scales
+            const dateScale = d3.scaleTime()
+                .domain(d3.extent(transactions, d => d.dateObj))
+                .range([0.3 * radius, 0.9 * radius]);
+
+            // Time scale (maps 24 hours to 360 degrees)
+            const timeScale = d3.scaleTime()
+                .domain([parseTime('00:00:00'), parseTime('23:59:59')])
+                .range([0, 2 * Math.PI]);
+
+            // Draw transaction points
+            svg.selectAll('.transaction-point')
+                .data(filteredTransactions)
+                .enter()
+                .append('circle')
+                .attr('class', 'transaction-point')
+                .attr('r', d => Math.min(5, Math.max(3, Math.sqrt(d.price) / 3))) // Size based on price, but with limits
+                .attr('cx', d => {
+                    const angle = timeScale(d.timeObj);
+                    const r = dateScale(d.dateObj);
+                    return r * Math.sin(angle);
+                })
+                .attr('cy', d => {
+                    const angle = timeScale(d.timeObj);
+                    const r = dateScale(d.dateObj);
+                    return -r * Math.cos(angle);
+                })
+                .style('fill', d => colorMap[d.category])
+                .style('opacity', 0.8)
+                .on('mouseover', function(event, d) {
+                    d3.select(this)
+                        .transition()
+                        .duration(200)
+                        .attr('r', d => Math.min(8, Math.max(6, Math.sqrt(d.price) / 2)))
+                        .style('opacity', 1);
+
+                    tooltip.transition()
+                        .duration(200)
+                        .style('opacity', 0.9);
+
+                    tooltip.html(`
+                        <h4>${d.category}</h4>
+                        <p><strong>Location:</strong> ${d.location}</p>
+                        <p><strong>Date:</strong> ${formatDate(d.dateObj)}</p>
+                        <p><strong>Time:</strong> ${formatTime(d.timeObj)}</p>
+                        <p><strong>Amount:</strong> $${d.price.toFixed(2)}</p>
+                        <p><strong>Card:</strong> ****${d.last4ccnum}</p>
+                    `)
+                    .style('left', (event.pageX + 10) + 'px')
+                    .style('top', (event.pageY - 28) + 'px');
+                })
+                .on('mouseout', function() {
+                    d3.select(this)
+                        .transition()
+                        .duration(500)
+                        .attr('r', d => Math.min(5, Math.max(3, Math.sqrt(d.price) / 3)))
+                        .style('opacity', 0.8);
+
+                    tooltip.transition()
+                        .duration(500)
+                        .style('opacity', 0);
+                });
+
+            // Add date markers
+            const dateCircles = uniqueDates
+                .map(date => parseDate(date))
+                .sort((a, b) => a - b);
+
+            // Remove existing date circles
+            svg.selectAll('.date-circle').remove();
+
+            // Add new date circles
+            svg.selectAll('.date-circle')
+                .data(dateCircles)
+                .enter()
+                .append('circle')
+                .attr('class', 'date-circle')
+                .attr('r', d => dateScale(d))
+                .style('fill', 'none')
+                .style('stroke', d => {
+                    const dateStr = d3.timeFormat('%Y-%m-%d')(d);
+                    return dateStr === selectedDate ? '#4299e1' : '#e2e8f0';
+                })
+                .style('stroke-width', d => {
+                    const dateStr = d3.timeFormat('%Y-%m-%d')(d);
+                    return dateStr === selectedDate ? 2 : 1;
+                });
+        }
+
+        function updateSummary() {
+            const summaryStats = document.getElementById('summary-stats');
+
+            // Calculate summary statistics
+            const totalTransactions = filteredTransactions.length;
+            const totalSpent = d3.sum(filteredTransactions, d => d.price);
+            const avgTransaction = totalTransactions > 0 ? totalSpent / totalTransactions : 0;
+            const categoryCounts = {};
+
+            filteredTransactions.forEach(t => {
+                categoryCounts[t.category] = (categoryCounts[t.category] || 0) + 1;
+            });
+
+            const topCategory = Object.entries(categoryCounts)
+                .sort((a, b) => b[1] - a[1])
+                .map(entry => ({ category: entry[0], count: entry[1] }))[0] || { category: 'None', count: 0 };
+
+            // Update summary
+            summaryStats.innerHTML = `
+                <div class="stat">
+                    <div class="stat-label">Total Transactions</div>
+                    <div class="stat-value">${totalTransactions}</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-label">Total Amount</div>
+                    <div class="stat-value">$${totalSpent.toFixed(2)}</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-label">Average Amount</div>
+                    <div class="stat-value">$${avgTransaction.toFixed(2)}</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-label">Top Category</div>
+                    <div class="stat-value">${topCategory.category} (${topCategory.count})</div>
+                </div>
+            `;
+        }
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            const container = document.getElementById('chart');
+            const containerRect = container.getBoundingClientRect();
+
+            width = containerRect.width;
+            height = containerRect.height;
+
+            // Update SVG
+            d3.select('#chart svg')
+                .attr('width', width)
+                .attr('height', height);
+
+            d3.select('#chart svg g')
+                .attr('transform', `translate(${width / 2},${height / 2})`);
+
+            // Recalculate radius
+            radius = Math.min(width, height) / 2 - 60;
+
+            // Redraw visualization
+            updateVisualization();
+        });
+    </script>
+</body>
+</html>

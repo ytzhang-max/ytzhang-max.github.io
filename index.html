@@ -3,37 +3,137 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Circular Double-Layer Bar Chart - Transaction Data Analysis</title>
+    <title>Financial Transaction Analysis Dashboard</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
-        body {
-            font-family: 'Arial', sans-serif;
-            background-color: #f8f9fa;
-            margin: 0;
-            padding: 20px;
-            color: #333;
+        :root {
+            --primary-color: #1e3c72;
+            --primary-light: #4b6cb7;
+            --secondary-color: #2a5298;
+            --text-color: #333;
+            --light-text: #718096;
+            --background-color: #f8f9fa;
+            --card-background: white;
+            --border-color: #e2e8f0;
+            --highlight-color: #4299e1;
+            --success-color: #48bb78;
+            --warning-color: #ed8936;
+            --danger-color: #f56565;
         }
-        .container {
-            max-width: 960px;
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            line-height: 1.5;
+            padding: 0;
+            margin: 0;
+        }
+
+        .dashboard {
+            max-width: 1600px;
             margin: 0 auto;
-            background-color: white;
+        }
+
+        header {
+            background: linear-gradient(to right, var(--primary-color), var(--secondary-color));
+            color: white;
+            padding: 1.5rem;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 500;
+        }
+
+        header p {
+            margin-top: 0.5rem;
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .tab-container {
+            margin: 20px;
+        }
+
+        .tabs {
+            display: flex;
+            margin-bottom: 15px;
+            border-bottom: 1px solid var(--border-color);
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+        }
+
+        .tabs::-webkit-scrollbar {
+            display: none;
+        }
+
+        .tab {
+            padding: 12px 24px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border-bottom: 3px solid transparent;
+            white-space: nowrap;
+            font-weight: 500;
+            color: var(--light-text);
+        }
+
+        .tab:hover {
+            color: var(--primary-color);
+            background-color: rgba(0,0,0,0.02);
+        }
+
+        .tab.active {
+            color: var(--primary-color);
+            border-bottom: 3px solid var(--primary-color);
+        }
+
+        .tab-content {
+            display: none;
+            background: var(--card-background);
             border-radius: 10px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            padding: 20px;
             overflow: hidden;
-            position: relative;
+            animation: fadeIn 0.5s;
         }
-        .header {
-            padding: 20px;
-            background: linear-gradient(to right, #1e3c72, #2a5298);
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Shared Styles */
+        .tooltip {
+            position: absolute;
+            padding: 10px 14px;
+            background: rgba(40, 44, 52, 0.95);
             color: white;
+            border-radius: 6px;
+            pointer-events: none;
+            font-size: 14px;
+            z-index: 10;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            transition: opacity 0.3s;
+            max-width: 280px;
+            line-height: 1.5;
         }
-        .header h1 {
-            margin: 0;
-            font-size: 24px;
-        }
-        .chart-area {
-            padding: 20px;
-            position: relative;
-        }
+
+        /* Visualization 1 Styles */
         .legend {
             display: flex;
             margin-bottom: 15px;
@@ -52,41 +152,11 @@
             margin-right: 8px;
             border-radius: 3px;
         }
-        .tooltip {
-            position: fixed; /* Changed to fixed to ensure proper display even when scrolling */
-            padding: 10px;
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 5px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-            pointer-events: none;
-            opacity: 0;
-            transition: opacity 0.3s;
-            font-size: 14px;
-            z-index: 100;
-            max-width: 220px;
-            border: 1px solid #ddd;
+        .circular-chart-container {
+            position: relative;
+            width: 100%;
         }
-        .tooltip-location {
-            font-weight: bold;
-            margin-bottom: 5px;
-            word-wrap: break-word;
-        }
-        .tooltip-data {
-            display: flex;
-            flex-direction: column;
-        }
-        .tooltip-data div {
-            margin-bottom: 5px;
-        }
-        svg {
-            display: block;
-            margin: 0 auto;
-            max-width: 100%;
-        }
-        .cc-bar {
-            transition: opacity 0.3s, filter 0.3s;
-        }
-        .lc-bar {
+        .cc-bar, .lc-bar {
             transition: opacity 0.3s, filter 0.3s;
         }
         .location-label {
@@ -106,91 +176,373 @@
             margin-bottom: 15px;
         }
         .center-circle {
-            fill: #f8f9fa;
-            stroke: #e0e0e0;
+            fill: var(--background-color);
+            stroke: var(--border-color);
             stroke-width: 1;
         }
-        /* Mobile optimization */
+
+        /* Visualization 2 Styles */
+        .box-plot-container {
+            overflow-x: auto;
+        }
+        .box {
+            fill-opacity: 0.7;
+        }
+        .median-line {
+            stroke-width: 2;
+        }
+        .point {
+            transition: all 0.2s;
+        }
+        .point:hover {
+            r: 5;
+        }
+        .axis text {
+            font-size: 11px;
+            fill: var(--light-text);
+        }
+        .axis line,
+        .axis path {
+            stroke: var(--border-color);
+        }
+
+        /* Visualization 3 Styles */
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            margin-bottom: 30px;
+            gap: 20px;
+        }
+        .control-group {
+            flex: 1;
+            min-width: 200px;
+        }
+        select {
+            width: 100%;
+            padding: 10px 15px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background-color: white;
+            color: var(--light-text);
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        select:focus {
+            border-color: var(--highlight-color);
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.2);
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: var(--light-text);
+            font-size: 14px;
+        }
+        .visualization {
+            position: relative;
+            height: 700px;
+            display: flex;
+        }
+        .chart-container {
+            flex: 3;
+            position: relative;
+        }
+        .sidebar {
+            flex: 1;
+            padding-left: 30px;
+            min-width: 240px;
+        }
+        .transaction-point {
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .transaction-point:hover {
+            stroke: white;
+            stroke-width: 2px;
+        }
+        .time-axis path, .time-axis line {
+            stroke: var(--border-color);
+        }
+        .time-axis text {
+            fill: var(--light-text);
+            font-size: 12px;
+        }
+        .date-circle {
+            fill: none;
+            stroke: var(--border-color);
+            stroke-width: 1;
+        }
+        .legend-title {
+            font-weight: 500;
+            margin-bottom: 15px;
+            font-size: 16px;
+            color: var(--text-color);
+        }
+        .legend-text {
+            font-size: 14px;
+            color: var(--light-text);
+        }
+        .calendar {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 5px;
+            margin-top: 20px;
+        }
+        .calendar-title {
+            font-weight: 500;
+            margin: 20px 0 10px 0;
+            font-size: 16px;
+            color: var(--text-color);
+            grid-column: span 7;
+        }
+        .calendar-day {
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+            background: #ebf4ff;
+            color: var(--light-text);
+        }
+        .calendar-day:hover {
+            background: #bee3f8;
+        }
+        .calendar-day.active {
+            background: var(--highlight-color);
+            color: white;
+        }
+        .summary {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f7fafc;
+            border-radius: 8px;
+        }
+        .summary h3 {
+            margin-top: 0;
+            color: var(--text-color);
+            font-weight: 500;
+        }
+        .stat {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 16px;
+            border-bottom: 1px dashed var(--border-color);
+            padding-bottom: 10px;
+        }
+        .stat:last-child {
+            margin-bottom: 0;
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+        .stat-label {
+            color: var(--light-text);
+            font-size: 14px;
+        }
+        .stat-value {
+            font-weight: 500;
+            color: var(--text-color);
+            font-size: 15px;
+        }
+
+        /* Responsive adjustments */
         @media (max-width: 768px) {
+            .visualization {
+                flex-direction: column;
+                height: auto;
+            }
+            .sidebar {
+                padding-left: 0;
+                margin-top: 30px;
+            }
+            .chart-container {
+                height: 500px;
+            }
             .legend-item {
                 margin-right: 10px;
             }
             .tooltip {
-                max-width: 180px;
+                max-width: 200px;
                 font-size: 12px;
+            }
+            .tab {
+                padding: 10px 15px;
+                font-size: 14px;
             }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>Location Transaction Data Comparison</h1>
-        </div>
-        <div class="chart-area">
-            <div class="center-info">
-                <p>This chart shows the comparison between credit card transactions (outer ring - blue) and loyalty card transactions (inner ring - red) at various locations</p>
+    <div class="dashboard">
+        <header>
+            <h1>Financial Transaction Analysis Dashboard</h1>
+            <p>Comprehensive visualization and analysis of transaction data across multiple locations</p>
+        </header>
+
+        <div class="tab-container">
+            <div class="tabs">
+                <div class="tab active" data-tab="tab1">Location Transaction Comparison</div>
+                <div class="tab" data-tab="tab2">Price Distribution</div>
+                <div class="tab" data-tab="tab3">Credit Card Transaction Explorer</div>
             </div>
-            <div class="legend">
-                <div class="legend-item">
-                    <div class="legend-color" style="background: linear-gradient(to right, #48b1f3, #06a3ff);"></div>
-                    <div>Credit Card Transactions (Outer Ring)</div>
+
+            <!-- Tab 1 Content: Circular Double-Layer Chart -->
+            <div id="tab1" class="tab-content active">
+                <div class="center-info">
+                    <p>This chart shows the comparison between credit card transactions (outer ring - blue) and loyalty card transactions (inner ring - red) at various locations</p>
                 </div>
-                <div class="legend-item">
-                    <div class="legend-color" style="background: linear-gradient(to right, #ff7676, #f44336);"></div>
-                    <div>Loyalty Card Transactions (Inner Ring)</div>
+                <div class="legend">
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: linear-gradient(to right, #48b1f3, #06a3ff);"></div>
+                        <div>Credit Card Transactions (Outer Ring)</div>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: linear-gradient(to right, #ff7676, #f44336);"></div>
+                        <div>Loyalty Card Transactions (Inner Ring)</div>
+                    </div>
                 </div>
+                <div id="circular-chart" class="circular-chart-container"></div>
+                <div class="tooltip" id="tooltip-circular"></div>
             </div>
-            <div id="chart"></div>
-            <div class="tooltip" id="tooltip"></div>
+
+            <!-- Tab 2 Content: Box Plot -->
+            <div id="tab2" class="tab-content">
+                <div id="box-plot" class="box-plot-container"></div>
+                <div class="tooltip" id="tooltip-boxplot"></div>
+            </div>
+
+            <!-- Tab 3 Content: Credit Card Transaction Explorer -->
+            <div id="tab3" class="tab-content">
+                <div class="controls">
+                    <div class="control-group">
+                        <label for="location-filter">Location</label>
+                        <select id="location-filter">
+                            <option value="all">All Locations</option>
+                        </select>
+                    </div>
+
+                    <div class="control-group">
+                        <label for="cc-filter">Credit Card</label>
+                        <select id="cc-filter">
+                            <option value="all">All Cards</option>
+                        </select>
+                    </div>
+
+                    <div class="control-group">
+                        <label for="type-filter">Category</label>
+                        <select id="type-filter">
+                            <option value="all">All Categories</option>
+                            <option value="Travel and Accommodation">Travel & Accommodation</option>
+                            <option value="Miscellaneous">Miscellaneous</option>
+                            <option value="Retail">Retail</option>
+                            <option value="Food and Beverage">Food & Beverage</option>
+                            <option value="Industrial">Industrial</option>
+                        </select>
+                    </div>
+
+                    <div class="control-group">
+                        <label for="time-filter">Time of Day</label>
+                        <select id="time-filter">
+                            <option value="all">All Times</option>
+                            <option value="morning">Morning (6am-12pm)</option>
+                            <option value="afternoon">Afternoon (12pm-6pm)</option>
+                            <option value="evening">Evening (6pm-12am)</option>
+                            <option value="night">Night (12am-6am)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="visualization">
+                    <div class="chart-container" id="chart"></div>
+
+                    <div class="sidebar">
+                        <div class="legend-title">Categories</div>
+                        <div id="legend"></div>
+
+                        <div class="calendar-title">Filter by Date</div>
+                        <div id="calendar" class="calendar"></div>
+
+                        <div class="summary" id="summary">
+                            <h3>Transaction Summary</h3>
+                            <div id="summary-stats"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="tooltip" id="tooltip-explorer"></div>
+            </div>
         </div>
     </div>
 
-    <script src="https://d3js.org/d3.v7.min.js"></script>
     <script>
+        // Tab switching functionality
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                // Remove active class from all tabs and content
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+                // Add active class to clicked tab and corresponding content
+                tab.classList.add('active');
+                document.getElementById(tab.dataset.tab).classList.add('active');
+            });
+        });
+
+        // ========== VISUALIZATION 1: CIRCULAR DOUBLE-LAYER CHART ==========
         let clicked = null;
         let data;
         let location_index = {};
 
         // Set chart dimensions and margins
-        const margin = { top: 50, right: 80, bottom: 50, left: 80 },
+        const circularMargin = { top: 50, right: 80, bottom: 50, left: 80 },
             svgWidth = Math.min(800, window.innerWidth - 40),
             svgHeight = Math.min(800, window.innerWidth - 40),
-            width = svgWidth - margin.left - margin.right,
-            height = svgHeight - margin.top - margin.bottom,
-            innerRadius = Math.min(width, height) * 0.15,
-            middleRadius = Math.min(width, height) * 0.23,
-            outerRadius = Math.min(width, height) / 2 - 60;
+            circularWidth = svgWidth - circularMargin.left - circularMargin.right,
+            circularHeight = svgHeight - circularMargin.top - circularMargin.bottom,
+            innerRadius = Math.min(circularWidth, circularHeight) * 0.15,
+            middleRadius = Math.min(circularWidth, circularHeight) * 0.23,
+            outerRadius = Math.min(circularWidth, circularHeight) / 2 - 60;
 
-        // Load CSV data
-        d3.csv("data/popularlocationdata.csv").then(function(loadedData) {
-            data = loadedData;
+        // Mock data for demonstration (replace with d3.csv call in production)
+        const mockLocationData = [
+            { location: "Abila Airport", cc_count: 89, loyalty_count: 45 },
+            { location: "Abila Zacharo", cc_count: 76, loyalty_count: 62 },
+            { location: "Albert's Fine Clothing", cc_count: 123, loyalty_count: 54 },
+            { location: "Bean There Done That", cc_count: 156, loyalty_count: 112 },
+            { location: "Brew've Been Served", cc_count: 98, loyalty_count: 78 },
+            { location: "Brewed Awakenings", cc_count: 134, loyalty_count: 95 },
+            { location: "Carlyle Chemical Inc.", cc_count: 45, loyalty_count: 12 },
+            { location: "Chostus Hotel", cc_count: 178, loyalty_count: 65 },
+            { location: "Coffee Cameleon", cc_count: 113, loyalty_count: 87 },
+            { location: "Coffee Shack", cc_count: 87, loyalty_count: 92 },
+            { location: "Daily Dealz", cc_count: 142, loyalty_count: 73 },
+            { location: "Desafio Golf Course", cc_count: 67, loyalty_count: 28 },
+            { location: "Frank's Fuel", cc_count: 201, loyalty_count: 123 },
+            { location: "Frydos Autosupply", cc_count: 92, loyalty_count: 45 },
+            { location: "Gelatogalore", cc_count: 128, loyalty_count: 105 }
+        ];
 
-            // Convert strings to numbers
-            data.forEach(function(d, i) {
-                d.cc_count = +d.cc_count;
-                d.loyalty_count = +d.loyalty_count;
-                // Create short names for potentially long location names
-                d.shortLocation = d.location.length > 15 ?
-                    d.location.substring(0, 12) + '...' :
-                    d.location;
-                location_index[d.location] = i;
-            });
-
-            // Sort by credit card transaction count for better visual hierarchy
-            data.sort((a, b) => b.cc_count - a.cc_count);
-
-            // Draw the chart
-            drawChart();
-        }).catch(function(error) {
-            console.error("Error loading data: ", error);
-            document.getElementById("chart").innerHTML =
-                "<p style='text-align:center;color:red;'>Failed to load data. Please ensure the file data/popularlocationdata.csv exists and is accessible.</p>";
+        // Process mock data (or actual data when loaded)
+        data = mockLocationData;
+        data.forEach(function(d, i) {
+            // Create short names for potentially long location names
+            d.shortLocation = d.location.length > 15 ?
+                d.location.substring(0, 12) + '...' :
+                d.location;
+            location_index[d.location] = i;
         });
 
-        function drawChart() {
+        // Sort by credit card transaction count for better visual hierarchy
+        data.sort((a, b) => b.cc_count - a.cc_count);
+
+        // Draw the circular chart
+        function drawCircularChart() {
             // Create SVG
-            const svg = d3.select("#chart")
+            const svg = d3.select("#circular-chart")
                 .append("svg")
                 .attr("viewBox", `0 0 ${svgWidth} ${svgHeight}`)
                 .attr("width", "100%")
@@ -327,20 +679,20 @@
                         d3.select(this).attr("opacity", 1);
                         d3.select("#lc-bar-" + location_index[d.location]).attr("opacity", 1);
                     }
-                    showTooltip(event, d);
+                    showCircularTooltip(event, d);
                 })
                 .on("mousemove", function(event, d) {
-                    updateTooltipPosition(event);
+                    updateTooltipPosition(event, d3.select("#tooltip-circular"));
                 })
                 .on("mouseout", function(event, d) {
                     if (clicked === null || clicked !== this.id) {
                         d3.select(this).attr("opacity", 0.8);
                         d3.select("#lc-bar-" + location_index[d.location]).attr("opacity", 0.8);
                     }
-                    hideTooltip();
+                    hideTooltip(d3.select("#tooltip-circular"));
                 })
                 .on("click", function(event, d) {
-                    handleClick(event, d, this);
+                    handleCircularClick(event, d, this);
                 });
 
             // Draw the inner bars (loyalty card transactions - red)
@@ -365,21 +717,21 @@
                         d3.select(this).attr("opacity", 1);
                         d3.select("#cc-bar-" + location_index[d.location]).attr("opacity", 1);
                     }
-                    showTooltip(event, d);
+                    showCircularTooltip(event, d);
                 })
                 .on("mousemove", function(event, d) {
-                    updateTooltipPosition(event);
+                    updateTooltipPosition(event, d3.select("#tooltip-circular"));
                 })
                 .on("mouseout", function(event, d) {
                     if (clicked === null || clicked !== this.id) {
                         d3.select(this).attr("opacity", 0.8);
                         d3.select("#cc-bar-" + location_index[d.location]).attr("opacity", 0.8);
                     }
-                    hideTooltip();
+                    hideTooltip(d3.select("#tooltip-circular"));
                 })
                 .on("click", function(event, d) {
                     const ccBar = document.getElementById("cc-bar-" + location_index[d.location]);
-                    handleClick(event, d, ccBar);
+                    handleCircularClick(event, d, ccBar);
                 });
 
             // Use shortened labels for text
@@ -471,26 +823,24 @@
                 .attr("opacity", 0.8);
         }
 
-        // Tooltip functions - improved to adapt to any screen position
-        function showTooltip(event, d) {
-            const tooltip = d3.select("#tooltip");
+        // Circular chart tooltip functions
+        function showCircularTooltip(event, d) {
+            const tooltip = d3.select("#tooltip-circular");
             const ratio = (d.loyalty_count / d.cc_count * 100).toFixed(1);
 
             tooltip.style("opacity", 1);
             tooltip.html(`
-                <div class="tooltip-location">${d.location}</div>
-                <div class="tooltip-data">
+                <div style="font-weight:bold;margin-bottom:5px;">${d.location}</div>
+                <div>
                     <div>Credit Card: <strong>${d.cc_count}</strong></div>
                     <div>Loyalty Card: <strong>${d.loyalty_count}</strong></div>
-                    <div>Loyalty Ratio: <strong>${ratio}%</strong></div>
                 </div>
             `);
-            updateTooltipPosition(event);
+            updateTooltipPosition(event, tooltip);
         }
 
-        // Improved tooltip position calculation to ensure complete display even at screen edges
-        function updateTooltipPosition(event) {
-            const tooltip = d3.select("#tooltip");
+        // Generic tooltip position function
+        function updateTooltipPosition(event, tooltip) {
             const tooltipNode = tooltip.node();
 
             if (!tooltipNode) return;
@@ -530,12 +880,13 @@
                    .style("top", top + "px");
         }
 
-        function hideTooltip() {
-            d3.select("#tooltip").style("opacity", 0);
+        // Generic tooltip hide function
+        function hideTooltip(tooltip) {
+            tooltip.style("opacity", 0);
         }
 
-        // Handle click events
-        function handleClick(event, d, element) {
+        // Handle circular chart click events
+        function handleCircularClick(event, d, element) {
             const lcBarId = "lc-bar-" + location_index[d.location];
             const ccBarId = "cc-bar-" + location_index[d.location];
 
@@ -561,15 +912,801 @@
             }
         }
 
-        // Add window resize listener to update chart when screen size changes
-        window.addEventListener('resize', function() {
-            // Only re-render when size changes exceed a threshold
-            // This prevents performance issues from frequent redraws
-            clearTimeout(this.resizeTimer);
-            this.resizeTimer = setTimeout(function() {
-                d3.select("#chart svg").remove();
-                drawChart();
-            }, 250);
+        // ========== VISUALIZATION 2: BOX PLOT ==========
+        // Set dimensions and margins for box plot
+        const boxPlotMargin = { top: 50, right: 50, bottom: 160, left: 80 },
+              boxPlotWidth = 1100 - boxPlotMargin.left - boxPlotMargin.right,
+              boxPlotHeight = 700 - boxPlotMargin.top - boxPlotMargin.bottom;
+
+        // Create mock data for box plot
+        const mockBoxPlotData = [];
+        const locations = ["Abila Airport", "Albert's Fine Clothing", "Brew've Been Served", "Coffee Shack",
+                          "Frank's Fuel", "Gelatogalore", "Kronos Mart"];
+
+        // Generate realistic price data for each location
+        for (let i = 0; i < 200; i++) {
+            // Select a random location
+            const location = locations[Math.floor(Math.random() * locations.length)];
+
+            // Generate a price that makes sense for the location
+            let price;
+            if (location === "Albert's Fine Clothing") {
+                price = 100 + Math.random() * 900; // Expensive: $100-$1000
+            } else if (location === "Frank's Fuel") {
+                price = 30 + Math.random() * 100; // Medium: $30-$130
+            } else if (location.includes("Coffee") || location === "Gelatogalore") {
+                price = 3 + Math.random() * 25; // Cheap: $3-$28
+            } else if (location === "Abila Airport") {
+                price = 50 + Math.random() * 450; // Varies: $50-$500
+            } else {
+                price = 10 + Math.random() * 150; // Default range: $10-$160
+            }
+
+            // Add occasional outliers
+            if (Math.random() < 0.05) {
+                price *= 2.5;
+            }
+
+            mockBoxPlotData.push({
+                location: location,
+                price: price,
+                timestamp: `2023-${Math.floor(Math.random() * 12) + 1}-${Math.floor(Math.random() * 28) + 1}`,
+                last4ccnum: String(Math.floor(Math.random() * 10000)).padStart(4, '0')
+            });
+        }
+
+        function drawBoxPlot() {
+            // Create SVG container for box plot
+            const svg = d3.select("#box-plot")
+                .append("svg")
+                .attr("width", boxPlotWidth + boxPlotMargin.left + boxPlotMargin.right)
+                .attr("height", boxPlotHeight + boxPlotMargin.top + boxPlotMargin.bottom)
+                .append("g")
+                .attr("transform", `translate(${boxPlotMargin.left}, ${boxPlotMargin.top})`);
+
+            // Create tooltip for box plot
+            const tooltip = d3.select("#tooltip-boxplot");
+
+            // Process data
+            const data = mockBoxPlotData;
+
+            // Get list of all locations
+            const uniqueLocations = [...new Set(data.map(d => d.location))];
+
+            // Create X-axis scale
+            const x = d3.scaleBand()
+                .range([0, boxPlotWidth])
+                .domain(uniqueLocations)
+                .paddingInner(0.6)
+                .paddingOuter(0.4);
+
+            // Add X-axis
+            svg.append("g")
+                .attr("class", "axis")
+                .attr("transform", `translate(0, ${boxPlotHeight})`)
+                .call(d3.axisBottom(x))
+                .selectAll("text")
+                .attr("transform", "translate(-10,0)rotate(-45)")
+                .style("text-anchor", "end")
+                .style("font-size", "11px");
+
+            // Calculate statistics for each location
+            const statsByLocation = d3.rollup(data, v => {
+                const prices = v.map(d => d.price).sort(d3.ascending);
+                return {
+                    q1: d3.quantile(prices, 0.25),
+                    median: d3.quantile(prices, 0.5),
+                    q3: d3.quantile(prices, 0.75),
+                    iqr: d3.quantile(prices, 0.75) - d3.quantile(prices, 0.25),
+                    min: d3.min(prices),
+                    max: d3.max(prices),
+                    // Consider setting outlier ranges
+                    lowerOutlier: d3.quantile(prices, 0.25) - 1.5 * (d3.quantile(prices, 0.75) - d3.quantile(prices, 0.25)),
+                    upperOutlier: d3.quantile(prices, 0.75) + 1.5 * (d3.quantile(prices, 0.75) - d3.quantile(prices, 0.25)),
+                    raw: prices
+                };
+            }, d => d.location);
+
+            // Convert to array for easier processing
+            const statsArray = Array.from(statsByLocation, ([location, stats]) => ({
+                location,
+                ...stats
+            }));
+
+            // Calculate Y-axis range (using log scale)
+            const minPrice = d3.min(data, d => d.price) * 0.9;
+            const maxPrice = d3.max(data, d => d.price) * 1.1;
+
+            const y = d3.scaleLog()
+                .domain([minPrice, maxPrice])
+                .range([boxPlotHeight, 0]);
+
+            // Add Y-axis
+            svg.append("g")
+                .attr("class", "axis")
+                .call(d3.axisLeft(y)
+                    .tickFormat(d => {
+                        return d3.format(",.0f")(d);
+                    })
+                    .tickValues([10, 100, 1000, 10000])
+                );
+
+            // Add Y-axis title
+            svg.append("text")
+                .attr("transform", "rotate(-90)")
+                .attr("y", -boxPlotMargin.left + 15)
+                .attr("x", -boxPlotHeight / 2)
+                .attr("dy", "1em")
+                .style("text-anchor", "middle")
+                .style("font-size", "14px")
+                .style("fill", "#555")
+                .text("Price (Log Scale)");
+
+            // Add X-axis title
+            svg.append("text")
+                .attr("x", boxPlotWidth / 2)
+                .attr("y", boxPlotHeight + boxPlotMargin.bottom - 30)
+                .attr("text-anchor", "middle")
+                .style("font-size", "14px")
+                .style("fill", "#555")
+                .text("Locations");
+
+            // Define color scheme
+            const colors = d3.scaleOrdinal()
+                .domain(uniqueLocations)
+                .range(d3.schemeTableau10);
+
+            // Add vertical lines (from min to max)
+            svg.selectAll("vertLines")
+                .data(statsArray)
+                .enter()
+                .append("line")
+                .attr("x1", d => x(d.location) + x.bandwidth() / 2)
+                .attr("x2", d => x(d.location) + x.bandwidth() / 2)
+                .attr("y1", d => y(d.min > minPrice ? d.min : minPrice))
+                .attr("y2", d => y(d.max < maxPrice ? d.max : maxPrice))
+                .attr("stroke", d => d3.color(colors(d.location)).darker(0.5))
+                .attr("stroke-width", 1.5)
+                .attr("stroke-opacity", 0.5);
+
+            // Add boxes
+            const boxWidth = x.bandwidth() * 0.7;
+            svg.selectAll("boxes")
+                .data(statsArray)
+                .enter()
+                .append("rect")
+                .attr("class", "box")
+                .attr("x", d => x(d.location) + x.bandwidth() / 2 - boxWidth / 2)
+                .attr("y", d => y(d.q3))
+                .attr("height", d => y(d.q1) - y(d.q3))
+                .attr("width", boxWidth)
+                .attr("stroke", d => d3.color(colors(d.location)).darker(0.8))
+                .attr("stroke-width", 1.5)
+                .attr("fill", d => colors(d.location))
+                .on("mouseover", function(event, d) {
+                    tooltip.transition()
+                        .duration(200)
+                        .style("opacity", 1);
+                    tooltip.html(`
+                        <strong>${d.location}</strong><br>
+                        Max: ${d.max.toFixed(2)}<br>
+                        Q3: ${d.q3.toFixed(2)}<br>
+                        Median: ${d.median.toFixed(2)}<br>
+                        Q1: ${d.q1.toFixed(2)}<br>
+                        Min: ${d.min.toFixed(2)}<br>
+                        Sample size: ${d.raw.length}
+                    `);
+                    updateTooltipPosition(event, tooltip);
+
+                    d3.select(this)
+                        .attr("stroke-width", 2)
+                        .attr("fill-opacity", 0.9);
+                })
+                .on("mousemove", function(event) {
+                    updateTooltipPosition(event, tooltip);
+                })
+                .on("mouseout", function() {
+                    tooltip.transition()
+                        .duration(500)
+                        .style("opacity", 0);
+
+                    d3.select(this)
+                        .attr("stroke-width", 1.5)
+                        .attr("fill-opacity", 0.7);
+                });
+
+            // Add median lines
+            svg.selectAll("medianLines")
+                .data(statsArray)
+                .enter()
+                .append("line")
+                .attr("class", "median-line")
+                .attr("x1", d => x(d.location) + x.bandwidth() / 2 - boxWidth / 2)
+                .attr("x2", d => x(d.location) + x.bandwidth() / 2 + boxWidth / 2)
+                .attr("y1", d => y(d.median))
+                .attr("y2", d => y(d.median))
+                .attr("stroke", "#fff")
+                .attr("stroke-width", 2);
+
+            // Add violin plot effect - data points scatter plot
+            // Add jitter to each point
+            const jitter = d3.randomNormal(0, x.bandwidth() / 8);
+
+            svg.selectAll("points")
+                .data(data)
+                .enter()
+                .append("circle")
+                .attr("class", "point")
+                .attr("cx", d => x(d.location) + x.bandwidth() / 2 + jitter())
+                .attr("cy", d => y(d.price))
+                .attr("r", 3)
+                .attr("fill", d => d3.color(colors(d.location)).darker(0.2))
+                .attr("fill-opacity", 0.5)
+                .attr("stroke", "#fff")
+                .attr("stroke-width", 0.5)
+                .on("mouseover", function(event, d) {
+                    tooltip.transition()
+                        .duration(200)
+                        .style("opacity", 1);
+                    tooltip.html(`
+                        <strong>${d.location}</strong><br>
+                        Price: ${d.price.toFixed(2)}<br>
+                        Time: ${d.timestamp}<br>
+                        Credit Card: ****${d.last4ccnum || ''}
+                    `);
+                    updateTooltipPosition(event, tooltip);
+
+                    d3.select(this)
+                        .attr("r", 5)
+                        .attr("stroke-width", 1.5)
+                        .attr("fill-opacity", 0.9);
+                })
+                .on("mousemove", function(event) {
+                    updateTooltipPosition(event, tooltip);
+                })
+                .on("mouseout", function() {
+                    tooltip.transition()
+                        .duration(500)
+                        .style("opacity", 0);
+
+                    d3.select(this)
+                        .attr("r", 3)
+                        .attr("stroke-width", 0.5)
+                        .attr("fill-opacity", 0.5);
+                });
+
+            // Add title
+            svg.append("text")
+                .attr("x", boxPlotWidth / 2)
+                .attr("y", -boxPlotMargin.top / 2)
+                .attr("text-anchor", "middle")
+                .style("font-size", "18px")
+                .style("font-weight", "bold")
+                .style("fill", "#2c3e50")
+                .text("Price Distribution Box Plot by Location");
+
+            // Add legend
+            svg.append("text")
+                .attr("class", "legend")
+                .attr("x", boxPlotWidth - 200)
+                .attr("y", 10)
+                .style("font-size", "12px")
+                .style("fill", "#555")
+                .text("* Box shows Q1 to Q3 range");
+
+            svg.append("text")
+                .attr("class", "legend")
+                .attr("x", boxPlotWidth - 200)
+                .attr("y", 30)
+                .style("font-size", "12px")
+                .style("fill", "#555")
+                .text("* White line is the median");
+
+            svg.append("text")
+                .attr("class", "legend")
+                .attr("x", boxPlotWidth - 200)
+                .attr("y", 50)
+                .style("font-size", "12px")
+                .style("fill", "#555")
+                .text("* Whiskers extend to min/max values");
+
+            svg.append("text")
+                .attr("class", "legend")
+                .attr("x", boxPlotWidth - 200)
+                .attr("y", 70)
+                .style("font-size", "12px")
+                .style("fill", "#555")
+                .text("* Points represent individual transactions");
+        }
+
+        // ========== VISUALIZATION 3: CREDIT CARD TRANSACTION EXPLORER ==========
+        // Color scheme for categories
+        const colorMap = {
+            "Travel and Accommodation": "#5e85c5", // Blue
+            "Miscellaneous": "#a67db8", // Purple
+            "Retail": "#67c0a9", // Teal
+            "Food and Beverage": "#ef8e6c", // Coral
+            "Industrial": "#eac363" // Gold
+        };
+
+        // Location type mapping
+        const loctype = {
+            "Abila Airport": "Travel and Accommodation",
+            "Abila Scrapyard": "Miscellaneous",
+            "Abila Zacharo": "Miscellaneous",
+            "Ahaggo Museum": "Travel and Accommodation",
+            "Albert's Fine Clothing": "Retail",
+            "Bean There Done That": "Food and Beverage",
+            "Brew've Been Served": "Food and Beverage",
+            "Brewed Awakenings": "Food and Beverage",
+            "Carlyle Chemical Inc.": "Industrial",
+            "Chostus Hotel": "Travel and Accommodation",
+            "Coffee Cameleon": "Food and Beverage",
+            "Coffee Shack": "Food and Beverage",
+            "Daily Dealz": "Retail",
+            "Desafio Golf Course": "Travel and Accommodation",
+            "Frank's Fuel": "Miscellaneous",
+            "Frydos Autosupply n' More": "Retail",
+            "Gelatogalore": "Food and Beverage",
+            "General Grocer": "Retail",
+            "Guy's Gyros": "Food and Beverage",
+            "Hallowed Grounds": "Food and Beverage",
+            "Hippokampos": "Food and Beverage",
+            "Jack's Magical Beans": "Food and Beverage",
+            "Kalami Kafenion": "Food and Beverage",
+            "Katerina's Cafe": "Food and Beverage",
+            "Kronos Mart": "Retail",
+            "Kronos Pipe and Irrigation": "Industrial",
+            "Maximum Iron and Steel": "Industrial",
+            "Nationwide Refinery": "Industrial",
+            "Octavio's Office Supplies": "Retail",
+            "Ouzeri Elian": "Food and Beverage",
+            "Roberts and Sons": "Miscellaneous",
+            "Shoppers' Delight": "Retail",
+            "Stewart and Sons Fabrication": "Miscellaneous",
+            "U-Pump": "Miscellaneous"
+        };
+
+        // Global variables
+        let transactions = [];
+        let filteredTransactions = [];
+        let uniqueDates = [];
+        let uniqueLocations = [];
+        let uniqueCards = [];
+        let svg3, width3, height3, radius3;
+        let selectedDate = null;
+        let selectedCategory = null;
+        let tooltip3;
+
+        // Parse time functions
+        const parseDate = d3.timeParse("%Y-%m-%d");
+        const parseTime = d3.timeParse("%H:%M:%S");
+        const formatTime = d3.timeFormat("%I:%M %p");
+        const formatDate = d3.timeFormat("%b %d, %Y");
+
+        // Generate mock transaction data
+        function generateMockTransactionData() {
+            const locations = Object.keys(loctype);
+            const categories = ["Travel and Accommodation", "Miscellaneous", "Retail", "Food and Beverage", "Industrial"];
+            const dates = ["2023-04-01", "2023-04-02", "2023-04-03", "2023-04-04", "2023-04-05", "2023-04-06", "2023-04-07"];
+            const cardNumbers = ["1234", "5678", "9012", "3456", "7890"];
+
+            const mockTransactions = [];
+
+            for (let i = 0; i < 250; i++) {
+                const location = locations[Math.floor(Math.random() * locations.length)];
+                const date = dates[Math.floor(Math.random() * dates.length)];
+                const hour = Math.floor(Math.random() * 24);
+                const minute = Math.floor(Math.random() * 60);
+                const second = Math.floor(Math.random() * 60);
+                const time = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}:${second.toString().padStart(2, '0')}`;
+                const price = Math.random() * 100 + 5;
+                const card = cardNumbers[Math.floor(Math.random() * cardNumbers.length)];
+
+                mockTransactions.push({
+                    date: date,
+                    dateObj: parseDate(date),
+                    time: time,
+                    timeObj: parseTime(time),
+                    price: price,
+                    last4ccnum: card,
+                    location: location,
+                    category: loctype[location] || "Miscellaneous"
+                });
+            }
+
+            return mockTransactions;
+        }
+
+        function initializeTransactionExplorer() {
+            // Create mock data
+            transactions = generateMockTransactionData();
+
+            // Extract unique values
+            uniqueDates = Array.from(new Set(transactions.map(d => d.date))).sort();
+            uniqueLocations = Array.from(new Set(transactions.map(d => d.location))).sort();
+            uniqueCards = Array.from(new Set(transactions.map(d => d.last4ccnum))).sort();
+
+            // Initialize filters
+            initializeFilters();
+
+            // Create visualization
+            createVisualization();
+
+            // Initial filtering
+            filterData();
+        }
+
+        function initializeFilters() {
+            // Populate location dropdown
+            const locationSelect = document.getElementById('location-filter');
+            // Clear existing options except the first one
+            while (locationSelect.options.length > 1) {
+                locationSelect.remove(1);
+            }
+
+            uniqueLocations.forEach(location => {
+                const option = document.createElement('option');
+                option.value = location;
+                option.textContent = location;
+                locationSelect.appendChild(option);
+            });
+
+            // Populate credit card dropdown
+            const ccSelect = document.getElementById('cc-filter');
+            // Clear existing options except the first one
+            while (ccSelect.options.length > 1) {
+                ccSelect.remove(1);
+            }
+
+            uniqueCards.forEach(card => {
+                const option = document.createElement('option');
+                option.value = card;
+                option.textContent = `Card ending in ${card}`;
+                ccSelect.appendChild(option);
+            });
+
+            // Add event listeners
+            document.querySelectorAll('select').forEach(select => {
+                select.addEventListener('change', filterData);
+            });
+
+            // Create category legend
+            const legend = document.getElementById('legend');
+            legend.innerHTML = ''; // Clear existing content
+
+            Object.keys(colorMap).forEach(category => {
+                const item = document.createElement('div');
+                item.className = 'legend-item';
+                item.innerHTML = `
+                    <div class="legend-color" style="background-color: ${colorMap[category]}"></div>
+                    <div class="legend-text">${category}</div>
+                `;
+                item.addEventListener('click', () => {
+                    if (selectedCategory === category) {
+                        selectedCategory = null;
+                    } else {
+                        selectedCategory = category;
+                    }
+                    updateLegendHighlight();
+                    filterData();
+                });
+                legend.appendChild(item);
+            });
+
+            // Create calendar
+            createCalendar();
+        }
+
+        function createCalendar() {
+            const calendar = document.getElementById('calendar');
+            calendar.innerHTML = ''; // Clear existing content
+
+            uniqueDates.forEach(date => {
+                const day = document.createElement('div');
+                day.className = 'calendar-day';
+                // Extract day from date (assuming YYYY-MM-DD format)
+                day.textContent = date.split('-')[2];
+                day.dataset.date = date;
+                day.addEventListener('click', () => {
+                    if (selectedDate === date) {
+                        selectedDate = null;
+                        day.classList.remove('active');
+                    } else {
+                        document.querySelectorAll('.calendar-day.active').forEach(el => {
+                            el.classList.remove('active');
+                        });
+                        selectedDate = date;
+                        day.classList.add('active');
+                    }
+                    filterData();
+                });
+                calendar.appendChild(day);
+            });
+        }
+
+        function createVisualization() {
+            // Create chart container
+            const container = document.getElementById('chart');
+            const containerRect = container.getBoundingClientRect();
+
+            width3 = containerRect.width;
+            height3 = containerRect.height;
+
+            radius3 = Math.min(width3, height3) / 2 - 60;
+
+            // Clear existing SVG if any
+            d3.select('#chart svg').remove();
+
+            svg3 = d3.select('#chart')
+                .append('svg')
+                .attr('width', width3)
+                .attr('height', height3)
+                .append('g')
+                .attr('transform', `translate(${width3 / 2},${height3 / 2})`);
+
+            // Create tooltip
+            tooltip3 = d3.select('#tooltip-explorer');
+
+            // Create time axis circles
+            const hourCircles = [0, 6, 12, 18].map(hour => {
+                return {
+                    hour: hour,
+                    label: hour === 0 ? '12 AM' : hour === 12 ? '12 PM' : hour > 12 ? `${hour - 12} PM` : `${hour} AM`
+                };
+            });
+
+            // Draw time circles
+            hourCircles.forEach(({ hour, label }) => {
+                const circleRadius = radius3 * 0.8 * (hour / 24) + radius3 * 0.2;
+                svg3.append('circle')
+                    .attr('r', circleRadius)
+                    .attr('class', 'time-circle')
+                    .style('fill', 'none')
+                    .style('stroke', '#e2e8f0')
+                    .style('stroke-dasharray', '2,4')
+                    .style('stroke-width', 1);
+
+                svg3.append('text')
+                    .attr('y', -circleRadius - 5)
+                    .attr('class', 'time-label')
+                    .attr('text-anchor', 'middle')
+                    .style('fill', '#718096')
+                    .style('font-size', '12px')
+                    .text(label);
+            });
+
+            // Add center label
+            svg3.append('text')
+                .attr('class', 'center-label')
+                .attr('text-anchor', 'middle')
+                .attr('dy', '0.35em')
+                .text('Time of Day');
+        }
+
+        function filterData() {
+            const locationFilter = document.getElementById('location-filter').value;
+            const ccFilter = document.getElementById('cc-filter').value;
+            const typeFilter = document.getElementById('type-filter').value;
+            const timeFilter = document.getElementById('time-filter').value;
+
+            // Apply filters
+            filteredTransactions = transactions.filter(t => {
+                // Location filter
+                if (locationFilter !== 'all' && t.location !== locationFilter) return false;
+
+                // Credit card filter
+                if (ccFilter !== 'all' && t.last4ccnum !== ccFilter) return false;
+
+                // Category filter
+                if (typeFilter !== 'all' && t.category !== typeFilter) return false;
+
+                // Selected category from legend
+                if (selectedCategory && t.category !== selectedCategory) return false;
+
+                // Date filter
+                if (selectedDate && t.date !== selectedDate) return false;
+
+                // Time of day filter
+                if (timeFilter !== 'all') {
+                    const hour = t.timeObj.getHours();
+                    if (timeFilter === 'morning' && (hour < 6 || hour >= 12)) return false;
+                    if (timeFilter === 'afternoon' && (hour < 12 || hour >= 18)) return false;
+                    if (timeFilter === 'evening' && (hour < 18 || hour >= 24)) return false;
+                    if (timeFilter === 'night' && (hour >= 6 && hour < 24)) return false;
+                }
+
+                return true;
+            });
+
+            updateVisualization();
+            updateSummary();
+        }
+
+        function updateLegendHighlight() {
+            document.querySelectorAll('.legend-item').forEach(item => {
+                const category = item.querySelector('.legend-text').textContent;
+                if (selectedCategory && category !== selectedCategory) {
+                    item.style.opacity = 0.5;
+                } else {
+                    item.style.opacity = 1;
+                }
+            });
+        }
+
+        function updateVisualization() {
+            // Clear existing points
+            svg3.selectAll('.transaction-point').remove();
+
+            // Calculate radial scales
+            const dateScale = d3.scaleTime()
+                .domain(d3.extent(transactions, d => d.dateObj))
+                .range([0.3 * radius3, 0.9 * radius3]);
+
+            // Time scale (maps 24 hours to 360 degrees)
+            const timeScale = d3.scaleTime()
+                .domain([parseTime('00:00:00'), parseTime('23:59:59')])
+                .range([0, 2 * Math.PI]);
+
+            // Draw transaction points
+            svg3.selectAll('.transaction-point')
+                .data(filteredTransactions)
+                .enter()
+                .append('circle')
+                .attr('class', 'transaction-point')
+                .attr('r', d => Math.min(5, Math.max(3, Math.sqrt(d.price) / 3))) // Size based on price, but with limits
+                .attr('cx', d => {
+                    const angle = timeScale(d.timeObj);
+                    const r = dateScale(d.dateObj);
+                    return r * Math.sin(angle);
+                })
+                .attr('cy', d => {
+                    const angle = timeScale(d.timeObj);
+                    const r = dateScale(d.dateObj);
+                    return -r * Math.cos(angle);
+                })
+                .style('fill', d => colorMap[d.category])
+                .style('opacity', 0.8)
+                .on('mouseover', function(event, d) {
+                    d3.select(this)
+                        .transition()
+                        .duration(200)
+                        .attr('r', d => Math.min(8, Math.max(6, Math.sqrt(d.price) / 2)))
+                        .style('opacity', 1);
+
+                    tooltip3.transition()
+                        .duration(200)
+                        .style('opacity', 0.9);
+
+                    tooltip3.html(`
+                        <h4 style="margin:0 0 8px 0;font-size:16px;font-weight:600;color:#9ae6b4;">${d.category}</h4>
+                        <p style="margin:4px 0;"><strong>Location:</strong> ${d.location}</p>
+                        <p style="margin:4px 0;"><strong>Date:</strong> ${formatDate(d.dateObj)}</p>
+                        <p style="margin:4px 0;"><strong>Time:</strong> ${formatTime(d.timeObj)}</p>
+                        <p style="margin:4px 0;"><strong>Amount:</strong> $${d.price.toFixed(2)}</p>
+                        <p style="margin:4px 0;"><strong>Card:</strong> ****${d.last4ccnum}</p>
+                    `);
+                    updateTooltipPosition(event, tooltip3);
+                })
+                .on('mousemove', function(event) {
+                    updateTooltipPosition(event, tooltip3);
+                })
+                .on('mouseout', function() {
+                    d3.select(this)
+                        .transition()
+                        .duration(500)
+                        .attr('r', d => Math.min(5, Math.max(3, Math.sqrt(d.price) / 3)))
+                        .style('opacity', 0.8);
+
+                    tooltip3.transition()
+                        .duration(500)
+                        .style('opacity', 0);
+                });
+
+            // Add date markers
+            const dateCircles = uniqueDates
+                .map(date => parseDate(date))
+                .sort((a, b) => a - b);
+
+            // Remove existing date circles
+            svg3.selectAll('.date-circle').remove();
+
+            // Add new date circles
+            svg3.selectAll('.date-circle')
+                .data(dateCircles)
+                .enter()
+                .append('circle')
+                .attr('class', 'date-circle')
+                .attr('r', d => dateScale(d))
+                .style('fill', 'none')
+                .style('stroke', d => {
+                    const dateStr = d3.timeFormat('%Y-%m-%d')(d);
+                    return dateStr === selectedDate ? '#4299e1' : '#e2e8f0';
+                })
+                .style('stroke-width', d => {
+                    const dateStr = d3.timeFormat('%Y-%m-%d')(d);
+                    return dateStr === selectedDate ? 2 : 1;
+                });
+        }
+
+        function updateSummary() {
+            const summaryStats = document.getElementById('summary-stats');
+
+            // Calculate summary statistics
+            const totalTransactions = filteredTransactions.length;
+            const totalSpent = d3.sum(filteredTransactions, d => d.price);
+            const avgTransaction = totalTransactions > 0 ? totalSpent / totalTransactions : 0;
+            const categoryCounts = {};
+
+            filteredTransactions.forEach(t => {
+                categoryCounts[t.category] = (categoryCounts[t.category] || 0) + 1;
+            });
+
+            const topCategory = Object.entries(categoryCounts)
+                .sort((a, b) => b[1] - a[1])
+                .map(entry => ({ category: entry[0], count: entry[1] }))[0] || { category: 'None', count: 0 };
+
+            // Update summary
+            summaryStats.innerHTML = `
+                <div class="stat">
+                    <div class="stat-label">Total Transactions</div>
+                    <div class="stat-value">${totalTransactions}</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-label">Total Amount</div>
+                    <div class="stat-value">$${totalSpent.toFixed(2)}</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-label">Average Amount</div>
+                    <div class="stat-value">$${avgTransaction.toFixed(2)}</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-label">Top Category</div>
+                    <div class="stat-value">${topCategory.category} (${topCategory.count})</div>
+                </div>
+            `;
+        }
+
+        // Initialize all visualizations when the page loads
+        window.addEventListener('load', function() {
+            drawCircularChart();
+            drawBoxPlot();
+            initializeTransactionExplorer();
+
+            // Handle window resize for responsive charts
+            window.addEventListener('resize', function() {
+                // Debounce the resize event
+                clearTimeout(this.resizeTimer);
+                this.resizeTimer = setTimeout(function() {
+                    // Circular chart resize
+                    d3.select("#circular-chart svg").remove();
+                    drawCircularChart();
+
+                    // Box plot resize
+                    d3.select("#box-plot svg").remove();
+                    drawBoxPlot();
+
+                    // Transaction explorer resize
+                    const container = document.getElementById('chart');
+                    if (container) {
+                        const containerRect = container.getBoundingClientRect();
+                        width3 = containerRect.width;
+                        height3 = containerRect.height;
+                        radius3 = Math.min(width3, height3) / 2 - 60;
+
+                        // Update SVG dimensions
+                        d3.select('#chart svg')
+                            .attr('width', width3)
+                            .attr('height', height3);
+
+                        d3.select('#chart svg g')
+                            .attr('transform', `translate(${width3 / 2},${height3 / 2})`);
+
+                        // Redraw visualization
+                        updateVisualization();
+                    }
+                }, 250);
+            });
         });
     </script>
 </body>
