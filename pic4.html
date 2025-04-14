@@ -3,394 +3,1565 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Transaction Data Analysis</title>
+    <title>Vehicle Route Tracking System - Optimized Version</title>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             margin: 0;
-            padding: 20px;
-        }
-        .container {
-            width: 100%;
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-        .chart-container {
-            margin-bottom: 50px;
-            border: 1px solid #ddd;
-            padding: 20px;
-            border-radius: 5px;
-        }
-        h1, h2 {
+            padding: 0;
+            background-color: #f5f7fa;
             color: #333;
         }
-        .tooltip {
-            background-color: white;
-            color: black;
-            border: solid;
-            border-width: 2px;
-            border-radius: 5px;
-            padding: 5px;
-            position: absolute;
-            pointer-events: none;
-            font-size: 14px;
-            z-index: 100;
-        }
-        .chart-description {
-            margin-bottom: 20px;
-            line-height: 1.5;
-        }
-        svg {
-            display: block;
+
+        .container {
+            max-width: 1200px;
             margin: 0 auto;
+            padding: 20px;
         }
-        .controls {
-            display: flex;
-            justify-content: center;
-            margin-bottom: 20px;
-            gap: 15px;
-        }
-        .data-toggle {
-            padding: 8px 15px;
-            border: 2px solid #333;
-            border-radius: 5px;
-            background-color: #f5f5f5;
-            cursor: pointer;
-            font-weight: bold;
-            transition: all 0.2s ease;
-        }
-        .data-toggle.active {
-            background-color: #333;
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
-        .cc-color {
-            color: rgb(17, 172, 172);
+
+        h1 {
+            margin: 0;
+            font-weight: 300;
+            letter-spacing: 1px;
         }
-        .loyalty-color {
-            color: rgb(172, 17, 172);
-        }
-        .combined-color {
-            background: linear-gradient(to right, rgb(17, 172, 172) 50%, rgb(172, 17, 172) 50%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            font-weight: bold;
-        }
-        .cc-legend, .loyalty-legend {
-            display: inline-block;
-            width: 15px;
-            height: 15px;
-            margin-right: 5px;
-            vertical-align: middle;
-        }
-        .cc-legend {
-            background-color: rgb(17, 172, 172);
-        }
-        .loyalty-legend {
-            background-color: rgb(172, 17, 172);
-        }
-        .legend {
+
+        .dashboard {
             display: flex;
-            justify-content: center;
-            align-items: center;
             gap: 20px;
             margin-bottom: 20px;
+        }
+
+        .map-container {
+            flex: 1;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            padding: 15px;
+            position: relative;
+            height: 600px;
+        }
+
+        .controls {
+            width: 250px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            padding: 15px;
+        }
+
+        .control-group {
+            margin-bottom: 20px;
+        }
+
+        .control-group h3 {
+            margin-top: 0;
+            font-weight: 500;
+            color: #555;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 8px;
+            margin-bottom: 15px;
+        }
+
+        .cars-list {
+            max-height: 400px;
+            overflow-y: auto;
+            margin-bottom: 20px;
+        }
+
+        .car-item {
+            display: flex;
+            align-items: center;
+            padding: 8px 5px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .car-item:hover {
+            background-color: #f0f4f8;
+        }
+
+        .car-item.selected {
+            background-color: #e6f7ff;
+        }
+
+        .car-color {
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+
+        .car-id {
+            font-weight: 500;
+        }
+
+        button {
+            background: #4a6cf7;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            width: 100%;
+            font-size: 14px;
+            transition: background-color 0.2s;
+        }
+
+        button:hover {
+            background: #3a5ce4;
+        }
+
+        button:active {
+            background: #2a4cd4;
+        }
+
+        button:disabled {
+            background: #a9b7f0;
+            cursor: not-allowed;
+        }
+
+        .date-picker {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+
+        .timeline {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            height: 40px;
+            background: #f0f4f8;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        .timeline-marker {
+            position: absolute;
+            width: 8px;
+            height: 40px;
+            background: #ff3333;
+            top: 0;
+            z-index: 5;
+            transition: left 0.1s linear;
+        }
+
+        .timeline-labels {
+            position: absolute;
+            top: 5px;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 10px;
+            font-size: 10px;
+            color: #666;
+        }
+
+        .timeline-progress {
+            position: absolute;
+            height: 100%;
+            background: rgba(74, 108, 247, 0.2);
+            width: 0;
+            left: 0;
+            transition: width 0.1s linear;
+        }
+
+        .legend {
+            margin-top: 20px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.9);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            display: none;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin-right: 10px;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .cars-list::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .cars-list::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+
+        .cars-list::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 10px;
+        }
+
+        .cars-list::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+
+        svg {
+            width: 100%;
+            height: 100%;
+            border-radius: 4px;
+        }
+
+        path {
+            fill: white;
+            stroke: #333;
+            stroke-width: 0.5px;
+        }
+
+        .tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 3px;
+            pointer-events: none;
+            display: none;
+            font-size: 12px;
+            z-index: 100;
+        }
+
+        .animation-settings {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        .animation-settings > div {
+            margin-bottom: 8px;
+            flex-basis: 48%;
+        }
+
+        .animation-settings label {
+            font-size: 12px;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .animation-settings select, .animation-settings input {
+            width: 100%;
+            padding: 5px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+
+        .animation-settings input[type="range"] {
+            height: 26px;
+        }
+
+        .performance-settings {
+            margin-top: 15px;
+            font-size: 13px;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .checkbox-group input {
+            margin-right: 8px;
+        }
+
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            border-radius: 4px;
+        }
+
+        .data-stats {
+            font-size: 12px;
+            color: #666;
+            margin-top: 10px;
+            background: #f5f7fa;
+            padding: 8px;
+            border-radius: 4px;
+        }
+
+        .time-display {
+            position: absolute;
+            right: 20px;
+            top: 15px;
+            background: rgba(255, 255, 255, 0.8);
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 500;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            z-index: 10;
+        }
+
+        .animation-controls {
+            position: absolute;
+            bottom: 70px;
+            left: 20px;
+            display: flex;
+            gap: 10px;
+            z-index: 10;
+        }
+
+        .animation-controls button {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        }
+
+        .animation-controls button:hover {
+            background: #f0f4f8;
+        }
+
+        .animation-controls button:disabled {
+            background: #e0e0e0;
+            color: #999;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Transaction Data Analysis</h1>
+        <header>
+            <h1>Vehicle Route Tracking System</h1>
+        </header>
 
-        <div class="chart-container">
-            <h2>Price Distribution by Location</h2>
-            <div class="chart-description">
-                This box plot shows the distribution of prices for transactions at various locations.
-                Each box represents the interquartile range (IQR) with the horizontal line indicating the median.
-                Whiskers extend to the minimum and maximum values, and individual points represent actual transactions.
-                Hover over points to see transaction details.
+        <div class="dashboard">
+            <div class="map-container">
+                <canvas id="route-canvas"></canvas>
+                <svg id="map"></svg>
+                <div class="time-display" id="time-display">--:--:--</div>
+                <div class="animation-controls" id="animation-controls">
+                    <button id="pause-button" disabled title="Pause"><i>⏸</i></button>
+                    <button id="play-button" title="Play"><i>▶</i></button>
+                    <button id="stop-button" disabled title="Stop"><i>⏹</i></button>
+                </div>
+                <div class="timeline">
+                    <div class="timeline-progress" id="timeline-progress"></div>
+                    <div class="timeline-marker" id="timeline-marker"></div>
+                    <div class="timeline-labels" id="timeline-labels">
+                        <span>00:00</span>
+                        <span>06:00</span>
+                        <span>12:00</span>
+                        <span>18:00</span>
+                        <span>23:59</span>
+                    </div>
+                </div>
+                <div class="tooltip" id="tooltip"></div>
+                <div class="loading" id="loading">
+                    <span class="spinner"></span> Loading...
+                </div>
             </div>
 
             <div class="controls">
-                <div class="data-toggle active" id="combinedToggle">Combined Data</div>
-                <div class="data-toggle" id="ccToggle">Credit Card Data</div>
-                <div class="data-toggle" id="loyaltyToggle">Loyalty Card Data</div>
-            </div>
+                <div class="control-group">
+                    <h3>Date Selection</h3>
+                    <input type="date" class="date-picker" id="date-picker" value="2014-01-06">
+                </div>
 
-            <div class="legend" id="legendContainer">
-                <div><span class="cc-legend"></span> Credit Card Data</div>
-                <div><span class="loyalty-legend"></span> Loyalty Card Data</div>
-            </div>
+                <div class="control-group">
+                    <h3>Vehicle Selection <span id="car-count">(0 selected)</span></h3>
+                    <div class="cars-list" id="cars-list">
+                        <!-- Vehicle list will be dynamically generated -->
+                    </div>
+                    <div class="data-stats" id="data-stats"></div>
+                </div>
 
-            <div id="boxplot_container">
-                <svg id="box_plot_svg" width="1160" height="900"></svg>
+                <div class="control-group">
+                    <h3>Animation Settings</h3>
+                    <div class="animation-settings">
+                        <div>
+                            <label for="animation-duration">Animation Duration (seconds)</label>
+                            <input type="number" id="animation-duration" min="5" max="300" step="5" value="60">
+                        </div>
+                        <div>
+                            <label for="animation-smoothness">Smoothness</label>
+                            <select id="animation-smoothness">
+                                <option value="low">Low (Performance)</option>
+                                <option value="medium" selected>Medium</option>
+                                <option value="high">High (Smoothest)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="point-size">Point Size</label>
+                            <select id="point-size">
+                                <option value="2">Small</option>
+                                <option value="4" selected>Medium</option>
+                                <option value="6">Large</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="path-opacity">Path Opacity</label>
+                            <input type="range" id="path-opacity" min="0" max="100" value="30">
+                        </div>
+                    </div>
+
+                    <div class="performance-settings">
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="use-canvas" checked>
+                            <label for="use-canvas">Use Canvas Rendering (Recommended)</label>
+                        </div>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="data-downsampling" checked>
+                            <label for="data-downsampling">Time Downsampling</label>
+                        </div>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="show-trail" checked>
+                            <label for="show-trail">Show Route Trails</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <button id="main-play-button">Play Route Animation</button>
+                </div>
+
+                <div class="control-group">
+                    <button id="clear-button">Clear Selection</button>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
-        // Global variables for margins and dimensions
-        var margin = { top: 50, right: 30, bottom: 130, left: 70 },
-            width = 1160 - margin.left - margin.right,
-            height = 900 - margin.top - margin.bottom;
-
-        // Variables to store data
-        var ccData, loyaltyData;
-        var currentView = 'combined';
-
-        // Domain array for locations
-        var locations = [
-            "Abila Airport",
-            "Abila Scrapyard",
-            "Abila Zacharo",
-            "Ahaggo Museum",
-            "Albert's Fine Clothing",
-            "Bean There Done That",
-            "Brew've Been Served",
-            "Brewed Awakenings",
-            "Carlyle Chemical Inc.",
-            "Chostus Hotel",
-            "Coffee Cameleon",
-            "Coffee Shack",
-            "Daily Dealz",
-            "Desafio Golf Course",
-            "Frank's Fuel",
-            "Frydos Autosupply n' More",
-            "Gelatogalore",
-            "General Grocer",
-            "Guy's Gyros",
-            "Hallowed Grounds",
-            "Hippokampos",
-            "Jack's Magical Beans",
-            "Kalami Kafenion",
-            "Katerina's Cafe",
-            "Kronos Mart",
-            "Kronos Pipe and Irrigation",
-            "Maximum Iron and Steel",
-            "Nationwide Refinery",
-            "Octavio's Office Supplies",
-            "Ouzeri Elian",
-            "Roberts and Sons",
-            "Shoppers' Delight",
-            "Stewart and Sons Fabrication",
-            "U-Pump"
+        // Color array
+        const colorArray = [
+            '#FF6633', '#FFB399', '#FF33FF', '#FFFF99', '#00B3E6',
+            '#E6B333', '#3366E6', '#999966', '#99FF99', '#B34D4D',
+            '#80B300', '#809900', '#E6B3B3', '#6680B3', '#66991A',
+            '#FF99E6', '#CCFF1A', '#FF1A66', '#E6331A', '#33FFCC',
+            '#66994D', '#B366CC', '#4D8000', '#B33300', '#CC80CC',
+            '#66664D', '#991AFF', '#E666FF', '#4DB3FF', '#1AB399',
+            '#E666B3', '#33991A', '#CC9999', '#B3B31A', '#00E680',
+            '#4D8066', '#809980', '#E6FF80', '#1AFF33', '#999933',
+            '#FF3380', '#CCCC00', '#66E64D', '#4D80CC', '#9900B3',
+            '#E64D66', '#4DB380', '#FF4D4D', '#99E6E6', '#6666FF'
         ];
 
-        document.addEventListener('DOMContentLoaded', function () {
-            // Set up event listeners for the toggle buttons
-            document.getElementById('combinedToggle').addEventListener('click', function() {
-                setActiveView('combined');
-            });
+        // Global variables
+        let map = d3.select('#map');
+        let canvas = document.getElementById('route-canvas');
+        let ctx = canvas.getContext('2d');
+        let tooltip = d3.select('#tooltip');
+        let loading = d3.select('#loading');
+        let mainPlayButton = document.getElementById('main-play-button');
+        let playButton = document.getElementById('play-button');
+        let pauseButton = document.getElementById('pause-button');
+        let stopButton = document.getElementById('stop-button');
+        let clearButton = document.getElementById('clear-button');
+        let datePickerElem = document.getElementById('date-picker');
+        let useCanvasElem = document.getElementById('use-canvas');
+        let dataDownsamplingElem = document.getElementById('data-downsampling');
+        let showTrailElem = document.getElementById('show-trail');
+        let animationDurationElem = document.getElementById('animation-duration');
+        let animationSmoothnessElem = document.getElementById('animation-smoothness');
+        let pointSizeElem = document.getElementById('point-size');
+        let pathOpacityElem = document.getElementById('path-opacity');
+        let carCountElem = document.getElementById('car-count');
+        let dataStatsElem = document.getElementById('data-stats');
+        let timeDisplayElem = document.getElementById('time-display');
+        let timelineMarker = document.getElementById('timeline-marker');
+        let timelineProgress = document.getElementById('timeline-progress');
 
-            document.getElementById('ccToggle').addEventListener('click', function() {
-                setActiveView('cc');
-            });
+        let gpsData = [];             // Original GPS data
+        let gpsDataByDate = {};       // GPS data indexed by date
+        let filteredData = [];        // Filtered data
+        let downsampledData = [];     // Downsampled data
+        let selectedCars = [];        // Selected vehicle IDs
+        let projection;               // Map projection
+        let carColors = {};           // Vehicle color mapping
+        let animationInProgress = false;
+        let animationPaused = false;
+        let dateValue = datePickerElem.value;
+        let animationFrame = null;    // Animation frame reference
+        let mapWidth, mapHeight;      // Map dimensions
+        let worker = null;            // Web Worker reference
+        let mapData = null;           // Map data reference
 
-            document.getElementById('loyaltyToggle').addEventListener('click', function() {
-                setActiveView('loyalty');
-            });
+        // Animation control variables
+        let animationStartTime = 0;   // Animation start timestamp
+        let pausedTime = 0;           // Elapsed time when paused
+        let animationTotalDuration = 60000; // Total animation duration (milliseconds)
+        let animationTimeRange = 0;   // Data time range (milliseconds)
+        let animationDataStartTime = 0; // Data start time
+        let animationDataEndTime = 0;  // Data end time
+        let animationCurrentTime = 0;  // Current animation time point
 
-            // Load both datasets
-            Promise.all([
-                d3.csv("MC2/cc_data.csv"),
-                d3.csv("MC2/loyalty_data.csv")
-            ]).then(function(datasets) {
-                ccData = datasets[0];
-                loyaltyData = datasets[1];
+        // Check if Web Worker is supported
+        const supportsWebWorker = typeof(Worker) !== "undefined";
 
-                // Initialize the combined view
-                updateChart();
-            }).catch(function(error) {
-                console.error("Error loading the data: ", error);
-            });
-        });
-
-        function setActiveView(view) {
-            // Update active button UI
-            document.getElementById('combinedToggle').classList.remove('active');
-            document.getElementById('ccToggle').classList.remove('active');
-            document.getElementById('loyaltyToggle').classList.remove('active');
-
-            document.getElementById(view + 'Toggle').classList.add('active');
-
-            // Update current view and redraw
-            currentView = view;
-            updateChart();
+        // Adjust Canvas size
+        function resizeCanvas() {
+            const mapContainer = document.querySelector('.map-container');
+            canvas.width = mapContainer.clientWidth;
+            canvas.height = mapContainer.clientHeight;
+            mapWidth = canvas.width;
+            mapHeight = canvas.height - 50; // Subtract timeline height
         }
 
-        function updateChart() {
-            // Clear the SVG
-            d3.select("#box_plot_svg").selectAll("*").remove();
+        // Show loading indicator
+        function showLoading() {
+            loading.classed('active', true);
+            mainPlayButton.disabled = true;
+            clearButton.disabled = true;
+            datePickerElem.disabled = true;
+        }
 
-            // Create a tooltip div if it doesn't exist
-            var tooltip = d3.select("body").select(".tooltip");
-            if (tooltip.empty()) {
-                tooltip = d3.select("body")
-                    .append("div")
-                    .attr("class", "tooltip")
-                    .style("opacity", 0);
+        // Hide loading indicator
+        function hideLoading() {
+            loading.classed('active', false);
+            mainPlayButton.disabled = false;
+            clearButton.disabled = false;
+            datePickerElem.disabled = false;
+        }
+
+        // Initialize application
+        function initApp() {
+            showLoading();
+            resizeCanvas();
+
+            // Initialize Web Worker
+            if (supportsWebWorker) {
+                const workerCode = `
+                    self.onmessage = function(e) {
+                        if (e.data.type === 'downsample') {
+                            const data = e.data.data;
+                            const desiredPoints = e.data.desiredPoints;
+
+                            // Group data by vehicle ID
+                            const groupedData = {};
+                            data.forEach(d => {
+                                if (!groupedData[d.id]) {
+                                    groupedData[d.id] = [];
+                                }
+                                groupedData[d.id].push(d);
+                            });
+
+                            // Downsample each vehicle's data
+                            let result = [];
+                            Object.entries(groupedData).forEach(([id, points]) => {
+                                // Calculate how many points to keep for this vehicle
+                                const carPoints = Math.max(20, Math.floor(desiredPoints * (points.length / data.length)));
+
+                                if (points.length <= carPoints) {
+                                    // Keep all points if less than target
+                                    result = result.concat(points);
+                                } else {
+                                    // Sample points evenly across time
+                                    const step = points.length / carPoints;
+                                    const sampledPoints = [];
+
+                                    // Always include first and last points
+                                    sampledPoints.push(points[0]);
+
+                                    for (let i = 1; i < carPoints - 1; i++) {
+                                        const index = Math.floor(i * step);
+                                        sampledPoints.push(points[index]);
+                                    }
+
+                                    sampledPoints.push(points[points.length - 1]);
+                                    result = result.concat(sampledPoints);
+                                }
+                            });
+
+                            // Sort by time
+                            result.sort((a, b) => new Date(a.Timestamp) - new Date(b.Timestamp));
+
+                            self.postMessage({
+                                type: 'downsampleResult',
+                                data: result,
+                                originalCount: data.length,
+                                downsampledCount: result.length
+                            });
+                        }
+                    };
+                `;
+
+                const blob = new Blob([workerCode], { type: 'application/javascript' });
+                worker = new Worker(URL.createObjectURL(blob));
+
+                worker.onmessage = function(e) {
+                    if (e.data.type === 'downsampleResult') {
+                        downsampledData = e.data.data;
+                        dataStatsElem.textContent = `Original data: ${e.data.originalCount} points, Downsampled: ${e.data.downsampledCount} points`;
+                        if (useCanvasElem.checked) {
+                            drawCanvas();
+                        } else {
+                            plotGPS();
+                        }
+                    }
+                };
             }
 
-            // Create the SVG group
-            var svg = d3.select("#box_plot_svg")
-                .append("g")
-                .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+            // Initialize animation time
+            animationTotalDuration = parseInt(animationDurationElem.value) * 1000;
 
-            // Set up scales
-            var x = d3.scaleBand()
-                .range([0, width])
-                .domain(locations)
-                .paddingInner(1)
-                .paddingOuter(.5);
+            // Load map and GPS data
+            Promise.all([
+                d3.json('data/abila.geojson'),
+                d3.csv('data/gps.csv')
+            ]).then(([mapJson, gps]) => {
+                mapData = mapJson;
+                // Store GPS data
+                gpsData = gps.map(d => ({
+                    ...d,
+                    lat: +d.lat,
+                    long: +d.long,
+                    id: d.id
+                }));
 
-            var y = d3.scaleLog()
-                .domain([2, 12000])
-                .range([height, 0]);
+                // Preprocess data by date
+                processGpsDataByDate();
 
-            // Add X axis
-            svg.append("g")
-                .attr("transform", "translate(0," + height + ")")
-                .call(d3.axisBottom(x))
-                .selectAll("text")
-                .attr("transform", "translate(-10,0)rotate(-45)")
-                .style("text-anchor", "end");
+                // Extract unique vehicle IDs
+                const carIds = [...new Set(gpsData.map(d => d.id))].sort((a, b) => +a - +b);
 
-            // Add Y axis
-            svg.append("g").call(d3.axisLeft(y));
+                // Assign colors to each vehicle
+                carIds.forEach((id, index) => {
+                    carColors[id] = colorArray[index % colorArray.length];
+                });
 
-            // Add X axis label
-            svg.append("text")
-                .attr("class", "xlabel")
-                .attr("text-anchor", "middle")
-                .attr("x", width / 2)
-                .attr("y", height + 110)
-                .text("Locations")
-                .style("font-size", "18px");
+                // Create map projection
+                projection = d3.geoEquirectangular()
+                    .fitSize([mapWidth, mapHeight], mapData);
 
-            // Add Y axis label
-            svg.append("text")
-                .attr("class", "ylabel")
-                .attr("transform", "rotate(-90)")
-                .attr("y", -margin.left - 40)
-                .attr("x", -(height / 2))
-                .attr("dy", "0.3em")
-                .style("text-anchor", "middle")
-                .text("Price")
-                .style("font-size", "18px");
+                const path = d3.geoPath().projection(projection);
 
-            // Determine which datasets to use
-            var datasets = [];
-            if (currentView === 'combined' || currentView === 'cc') {
-                datasets.push({data: ccData, color: "rgb(17, 172, 172)", type: "cc"});
-            }
-            if (currentView === 'combined' || currentView === 'loyalty') {
-                datasets.push({data: loyaltyData, color: "rgb(172, 17, 172)", type: "loyalty"});
-            }
+                // Draw map
+                map.selectAll('path')
+                    .data(mapData.features)
+                    .enter()
+                    .append('path')
+                    .attr('d', path)
+                    .attr('fill', 'white')
+                    .attr('stroke', '#333')
+                    .attr('stroke-width', '0.5px')
+                    .attr('opacity', 0.75);
 
-            // For each dataset, compute statistics and draw elements
-            datasets.forEach(function(dataset, datasetIndex) {
-                var data = dataset.data;
-                var color = dataset.color;
-                var type = dataset.type;
+                // Add background image
+                map.append('image')
+                    .attr('xlink:href', 'data/MC2-tourist.jpg')
+                    .attr('width', mapWidth)
+                    .attr('height', mapHeight)
+                    .attr('opacity', 0.7)
+                    .lower(); // Move image to bottom layer
 
-                // Calculate box plot statistics
-                var sumstat = d3.rollup(data, function(d) {
-                    q1 = d3.quantile(d.map(function(g) { return g.price; }).sort(d3.ascending), .25)
-                    median = d3.quantile(d.map(function(g) { return g.price; }).sort(d3.ascending), .5)
-                    q3 = d3.quantile(d.map(function(g) { return g.price; }).sort(d3.ascending), .75)
-                    interQuantileRange = q3 - q1
-                    min = d3.quantile(d.map(function(g) { return g.price; }).sort(d3.ascending), 0)
-                    max = d3.quantile(d.map(function(g) { return g.price; }).sort(d3.ascending), 1)
-                    return ({ q1: q1, median: median, q3: q3, interQuantileRange: interQuantileRange, min: min, max: max })
-                }, function(d) { return d.location; });
+                // Generate vehicle selection list
+                const carsList = document.getElementById('cars-list');
+                carIds.forEach(id => {
+                    const carItem = document.createElement('div');
+                    carItem.className = 'car-item';
+                    carItem.setAttribute('data-id', id);
 
-                // Calculate horizontal offset for combined view
-                var offset = 0;
-                var boxWidth = 28;
-                if (currentView === 'combined') {
-                    boxWidth = 20;
-                    offset = datasetIndex === 0 ? -boxWidth/2 - 2 : boxWidth/2 + 2;
+                    const carColor = document.createElement('div');
+                    carColor.className = 'car-color';
+                    carColor.style.backgroundColor = carColors[id];
+
+                    const carId = document.createElement('div');
+                    carId.className = 'car-id';
+                    carId.textContent = `Vehicle #${id}`;
+
+                    carItem.appendChild(carColor);
+                    carItem.appendChild(carId);
+                    carsList.appendChild(carItem);
+
+                    // Add click event
+                    carItem.addEventListener('click', () => toggleCarSelection(id, carItem));
+                });
+
+                // Add button event listeners
+                mainPlayButton.addEventListener('click', startAnimation);
+                playButton.addEventListener('click', resumeAnimation);
+                pauseButton.addEventListener('click', pauseAnimation);
+                stopButton.addEventListener('click', stopAnimation);
+                clearButton.addEventListener('click', clearSelection);
+                datePickerElem.addEventListener('change', function(e) {
+                    dateValue = e.target.value;
+                    updateData();
+                });
+
+                // Add rendering mode toggle
+                useCanvasElem.addEventListener('change', function() {
+                    if (this.checked) {
+                        canvas.style.display = 'block';
+                        map.selectAll('.gps-point').remove();
+                        map.selectAll('.path-line').remove();
+                        drawCanvas();
+                    } else {
+                        canvas.style.display = 'none';
+                        plotGPS();
+                    }
+                });
+
+                // Add downsampling toggle listener
+                dataDownsamplingElem.addEventListener('change', updateData);
+
+                // Add animation duration change listener
+                animationDurationElem.addEventListener('change', function() {
+                    animationTotalDuration = parseInt(this.value) * 1000;
+                });
+
+                // Add path opacity control
+                pathOpacityElem.addEventListener('input', function() {
+                    if (useCanvasElem.checked) {
+                        drawCanvas();
+                    } else {
+                        map.selectAll('.path-line').attr('stroke-opacity', parseInt(this.value) / 100);
+                    }
+                });
+
+                // Add timeline click event
+                document.querySelector('.timeline').addEventListener('click', function(e) {
+                    if (!animationInProgress) return;
+
+                    const timelineWidth = this.offsetWidth;
+                    const clickX = e.clientX - this.getBoundingClientRect().left;
+                    const progressPercent = clickX / timelineWidth;
+
+                    // Calculate corresponding time point
+                    const newTime = animationDataStartTime + progressPercent * animationTimeRange;
+
+                    if (animationPaused) {
+                        // If animation is paused, just update current time and redraw
+                        animationCurrentTime = newTime;
+                        pausedTime = (newTime - animationDataStartTime) / animationTimeRange * animationTotalDuration;
+                        updateTimelinePosition(progressPercent);
+                        updateTimeDisplay(new Date(newTime));
+                        renderAnimationFrame(newTime);
+                    } else {
+                        // If animation is playing, adjust animation start time
+                        animationStartTime = performance.now() - progressPercent * animationTotalDuration;
+                    }
+                });
+
+                // Initialize interface
+                canvas.style.display = useCanvasElem.checked ? 'block' : 'none';
+                hideLoading();
+                updateTimeDisplay(new Date());
+            }).catch(error => {
+                console.error('Error loading data:', error);
+                hideLoading();
+                alert('Error loading data. Please check console for details.');
+            });
+
+            // Listen for window resize
+            window.addEventListener('resize', function() {
+                resizeCanvas();
+                if (projection) {
+                    projection = d3.geoEquirectangular()
+                        .fitSize([mapWidth, mapHeight], mapData);
+
+                    if (useCanvasElem.checked) {
+                        drawCanvas();
+                    } else {
+                        plotGPS();
+                    }
+                }
+            });
+        }
+
+        // Preprocess GPS data by date
+        function processGpsDataByDate() {
+            gpsDataByDate = {};
+
+            gpsData.forEach(d => {
+                const date = new Date(d.Timestamp);
+                const dateKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
+                if (!gpsDataByDate[dateKey]) {
+                    gpsDataByDate[dateKey] = [];
                 }
 
-                // Draw vertical lines (min to max)
-                svg.selectAll("vertLines-" + type)
-                    .data(sumstat)
-                    .enter()
-                    .append("line")
-                    .attr("x1", function(d) { return (x(d[0]) + offset) })
-                    .attr("x2", function(d) { return (x(d[0]) + offset) })
-                    .attr("y1", function(d) { return (y(d[1].min)) })
-                    .attr("y2", function(d) { return (y(d[1].max)) })
-                    .attr("stroke", "black")
-                    .style("width", 40);
-
-                // Draw boxes (Q1 to Q3)
-                svg.selectAll("boxes-" + type)
-                    .data(sumstat)
-                    .enter()
-                    .append("rect")
-                    .attr("x", function(d) { return (x(d[0]) - boxWidth/2 + offset) })
-                    .attr("y", function(d) { return (y(d[1].q3)) })
-                    .attr("height", function(d) { return (y(d[1].q1) - y(d[1].q3)) })
-                    .attr("width", boxWidth)
-                    .attr("stroke", "black")
-                    .style("fill", color);
-
-                // Draw median lines
-                svg.selectAll("medianLines-" + type)
-                    .data(sumstat)
-                    .enter()
-                    .append("line")
-                    .attr("x1", function(d) { return (x(d[0]) - boxWidth/2 + offset) })
-                    .attr("x2", function(d) { return (x(d[0]) + boxWidth/2 + offset) })
-                    .attr("y1", function(d) { return (y(d[1].median)) })
-                    .attr("y2", function(d) { return (y(d[1].median)) })
-                    .attr("stroke", "black")
-                    .style("width", 80);
-
-                // Draw individual points with jitter
-                var jitterWidth = 20;
-                var jitterOffset = currentView === 'combined' ? offset : 0;
-
-                svg.selectAll("indPoints-" + type)
-                    .data(data)
-                    .enter()
-                    .append("circle")
-                    .attr("id", d => type + "_" + d.location.replace(/[^a-zA-Z0-9]/g, "_"))
-                    .attr("class", type + "_circles")
-                    .attr("cx", function(d) { return (x(d.location) - jitterWidth/2 + Math.random() * jitterWidth + jitterOffset) })
-                    .attr("cy", function(d) { return (y(d.price)) })
-                    .attr("r", 3)
-                    .style("fill", "white")
-                    .attr("stroke", color)
-                    .on("mouseover", function(event, d) {
-                        tooltip.transition().duration(200).style("opacity", 0.9);
-                    })
-                    .on("mouseout", function() {
-                        tooltip.transition().duration(500).style("opacity", 0);
-                    })
-                    .on("mousemove", function(event, d) {
-                        let tooltipContent = 'Price: ' + d.price + '<br>Location: ' + d.location + '<br>Time: ' + d.timestamp + '<br>';
-
-                        if (type === 'cc') {
-                            tooltipContent += 'Credit Card: ' + d.last4ccnum;
-                        } else {
-                            tooltipContent += 'Loyalty Number: ' + d.loyaltynum;
-                        }
-
-                        tooltip.html(tooltipContent)
-                            .style("left", (event.pageX + 10) + "px")
-                            .style("top", (event.pageY - 28) + "px");
-                    });
+                gpsDataByDate[dateKey].push(d);
             });
+        }
 
-            // Update legend visibility
-            if (currentView === 'combined') {
-                document.getElementById('legendContainer').style.display = 'flex';
+        // Toggle vehicle selection status
+        function toggleCarSelection(id, element) {
+            if (selectedCars.includes(id)) {
+                // Remove selected status
+                selectedCars = selectedCars.filter(carId => carId !== id);
+                element.classList.remove('selected');
             } else {
-                document.getElementById('legendContainer').style.display = 'none';
+                // Add selected status
+                selectedCars.push(id);
+                element.classList.add('selected');
+            }
+
+            // Update selected vehicles count
+            carCountElem.textContent = `(${selectedCars.length} selected)`;
+
+            updateData();
+        }
+
+        // Update data
+        function updateData() {
+            if (selectedCars.length === 0) {
+                // If no vehicles selected, clear all points
+                if (useCanvasElem.checked) {
+                    clearCanvas();
+                } else {
+                    map.selectAll('.gps-point').remove();
+                    map.selectAll('.path-line').remove();
+                }
+                dataStatsElem.textContent = '';
+                return;
+            }
+
+            // Get current date's data
+            const dateKey = dateValue;
+            const currentDateData = gpsDataByDate[dateKey] || [];
+
+            // Filter data to show only selected vehicles
+            filteredData = currentDateData.filter(d => selectedCars.includes(d.id));
+
+            // Sort by time
+            filteredData.sort((a, b) => new Date(a.Timestamp) - new Date(b.Timestamp));
+
+            if (dataDownsamplingElem.checked && filteredData.length > 1000 && worker) {
+                // Use Web Worker for downsampling, set target points based on smoothness
+                let desiredPoints = 500;
+                if (animationSmoothnessElem.value === 'low') {
+                    desiredPoints = 300;
+                } else if (animationSmoothnessElem.value === 'high') {
+                    desiredPoints = 1000;
+                }
+
+                worker.postMessage({
+                    type: 'downsample',
+                    data: filteredData,
+                    desiredPoints: desiredPoints
+                });
+            } else {
+                // No downsampling or Web Worker not supported
+                downsampledData = filteredData;
+                dataStatsElem.textContent = `Data points: ${filteredData.length}`;
+
+                if (useCanvasElem.checked) {
+                    drawCanvas();
+                } else {
+                    plotGPS();
+                }
+            }
+
+            // Calculate time range
+            if (filteredData.length > 0) {
+                const firstTime = new Date(filteredData[0].Timestamp).getTime();
+                const lastTime = new Date(filteredData[filteredData.length - 1].Timestamp).getTime();
+                animationTimeRange = lastTime - firstTime;
+                animationDataStartTime = firstTime;
+                animationDataEndTime = lastTime;
+
+                // Update timeline labels
+                updateTimelineLabels(new Date(firstTime), new Date(lastTime));
             }
         }
+
+        // Update timeline labels
+        function updateTimelineLabels(startTime, endTime) {
+            const labels = document.getElementById('timeline-labels');
+            labels.innerHTML = '';
+
+            // Create 5 evenly distributed time labels
+            for (let i = 0; i < 5; i++) {
+                const labelTime = new Date(startTime.getTime() + (i / 4) * (endTime.getTime() - startTime.getTime()));
+                const span = document.createElement('span');
+                span.textContent = formatTime(labelTime);
+                labels.appendChild(span);
+            }
+        }
+
+        // Format time to HH:MM format
+        function formatTime(date) {
+            return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+        }
+
+        // Update time display
+        function updateTimeDisplay(time) {
+            timeDisplayElem.textContent = time.toLocaleTimeString();
+        }
+
+        // Update timeline position
+        function updateTimelinePosition(percentage) {
+            const timelineWidth = document.querySelector('.timeline').offsetWidth;
+            timelineMarker.style.left = (percentage * timelineWidth) + 'px';
+            timelineProgress.style.width = (percentage * 100) + '%';
+        }
+
+        // Clear Canvas
+        function clearCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+
+        // Draw using Canvas
+        function drawCanvas() {
+            clearCanvas();
+
+            if (downsampledData.length === 0) {
+                return;
+            }
+
+            // Get path opacity
+            const pathOpacity = parseInt(pathOpacityElem.value) / 100;
+
+            // Group data by vehicle ID
+            const groupedData = {};
+            downsampledData.forEach(d => {
+                if (!groupedData[d.id]) {
+                    groupedData[d.id] = [];
+                }
+                groupedData[d.id].push(d);
+            });
+
+            // Draw path lines
+            Object.entries(groupedData).forEach(([id, points]) => {
+                const color = carColors[id];
+
+                // Set line style
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 2;
+                ctx.globalAlpha = pathOpacity;
+
+                // Start new path
+                ctx.beginPath();
+
+                // Move to first point
+                const firstPoint = projection([points[0].long, points[0].lat]);
+                ctx.moveTo(firstPoint[0], firstPoint[1]);
+
+                // Connect all points
+                for (let i = 1; i < points.length; i++) {
+                    const nextPoint = projection([points[i].long, points[i].lat]);
+                    ctx.lineTo(nextPoint[0], nextPoint[1]);
+                }
+
+                // Draw path
+                ctx.stroke();
+            });
+
+            // Draw points
+            const pointSize = parseInt(pointSizeElem.value);
+
+            downsampledData.forEach(d => {
+                const color = carColors[d.id];
+                const [x, y] = projection([d.long, d.lat]);
+
+                // Draw circle
+                ctx.globalAlpha = 0.8;
+                ctx.fillStyle = color;
+                ctx.beginPath();
+                ctx.arc(x, y, pointSize, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Draw white border
+                ctx.globalAlpha = 0.6;
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.arc(x, y, pointSize, 0, Math.PI * 2);
+                ctx.stroke();
+            });
+
+            // Reset opacity
+            ctx.globalAlpha = 1.0;
+        }
+
+        // Draw GPS points using D3
+        function plotGPS() {
+            if (downsampledData.length === 0) {
+                map.selectAll('.gps-point').remove();
+                map.selectAll('.path-line').remove();
+                return;
+            }
+
+            // Get path opacity
+            const pathOpacity = parseInt(pathOpacityElem.value) / 100;
+
+            // Group data by vehicle ID
+            const groupedData = {};
+            downsampledData.forEach(d => {
+                if (!groupedData[d.id]) {
+                    groupedData[d.id] = [];
+                }
+                groupedData[d.id].push(d);
+            });
+
+            // Draw path lines
+            map.selectAll('.path-line').remove();
+
+            Object.entries(groupedData).forEach(([id, points]) => {
+                const lineGenerator = d3.line()
+                    .x(d => projection([d.long, d.lat])[0])
+                    .y(d => projection([d.long, d.lat])[1])
+                    .curve(d3.curveCatmullRom.alpha(0.5));
+
+                map.append('path')
+                    .datum(points)
+                    .attr('class', 'path-line')
+                    .attr('d', lineGenerator)
+                    .attr('fill', 'none')
+                    .attr('stroke', carColors[id])
+                    .attr('stroke-width', 2)
+                    .attr('stroke-opacity', pathOpacity);
+            });
+
+            // Draw GPS points
+            const pointSize = parseInt(pointSizeElem.value);
+
+            const gpsPoints = map.selectAll('.gps-point')
+                .data(downsampledData, d => `${d.id}-${d.Timestamp}`);
+
+            gpsPoints.exit().remove();
+
+            gpsPoints.enter()
+                .append('circle')
+                .attr('class', 'gps-point')
+                .attr('cx', d => projection([d.long, d.lat])[0])
+                .attr('cy', d => projection([d.long, d.lat])[1])
+                .attr('r', pointSize)
+                .attr('fill', d => carColors[d.id])
+                .attr('stroke', '#fff')
+                .attr('stroke-width', 1)
+                .attr('opacity', 0.7)
+                .on('mouseover', function(event, d) {
+                    // Show tooltip
+                    const time = new Date(d.Timestamp);
+                    tooltip
+                        .style('display', 'block')
+                        .style('left', (event.pageX + 10) + 'px')
+                        .style('top', (event.pageY - 10) + 'px')
+                        .html(`
+                            <div>Vehicle ID: ${d.id}</div>
+                            <div>Time: ${time.toLocaleString()}</div>
+                            <div>Longitude: ${d.long}</div>
+                            <div>Latitude: ${d.lat}</div>
+                        `);
+
+                    // Highlight current point
+                    d3.select(this)
+                        .attr('r', pointSize + 2)
+                        .attr('opacity', 1);
+                })
+                .on('mouseout', function() {
+                    // Hide tooltip
+                    tooltip.style('display', 'none');
+
+                    // Restore point style
+                    d3.select(this)
+                        .attr('r', pointSize)
+                        .attr('opacity', 0.7);
+                });
+        }
+
+        // Start animation
+        function startAnimation() {
+            if (animationInProgress || selectedCars.length === 0 || downsampledData.length === 0) {
+                return;
+            }
+
+            // Update interface state
+            animationInProgress = true;
+            animationPaused = false;
+            mainPlayButton.disabled = true;
+            playButton.disabled = true;
+            pauseButton.disabled = false;
+            stopButton.disabled = false;
+
+            // Sort by time
+            downsampledData.sort((a, b) => new Date(a.Timestamp) - new Date(b.Timestamp));
+
+            // Save animation start time
+            animationStartTime = performance.now();
+            pausedTime = 0;
+
+            // Calculate data time range
+            animationDataStartTime = new Date(downsampledData[0].Timestamp).getTime();
+            animationDataEndTime = new Date(downsampledData[downsampledData.length - 1].Timestamp).getTime();
+            animationTimeRange = animationDataEndTime - animationDataStartTime;
+
+            // Group data by vehicle ID
+            const groupedData = {};
+            downsampledData.forEach(d => {
+                if (!groupedData[d.id]) {
+                    groupedData[d.id] = [];
+                }
+                groupedData[d.id].push(d);
+            });
+
+            // Prepare initial animation state
+            if (useCanvasElem.checked) {
+                clearCanvas();
+
+                // Draw static paths
+                if (showTrailElem.checked) {
+                    const pathOpacity = parseInt(pathOpacityElem.value) / 100;
+                    Object.entries(groupedData).forEach(([id, points]) => {
+                        const color = carColors[id];
+
+                        ctx.strokeStyle = color;
+                        ctx.lineWidth = 1;
+                        ctx.globalAlpha = pathOpacity;
+
+                        ctx.beginPath();
+                        const firstPoint = projection([points[0].long, points[0].lat]);
+                        ctx.moveTo(firstPoint[0], firstPoint[1]);
+
+                        for (let i = 1; i < points.length; i++) {
+                            const nextPoint = projection([points[i].long, points[i].lat]);
+                            ctx.lineTo(nextPoint[0], nextPoint[1]);
+                        }
+
+                        ctx.stroke();
+                    });
+                }
+            } else {
+                map.selectAll('.gps-point').remove();
+                map.selectAll('.animated-point').remove();
+
+                // Draw static path lines
+                if (showTrailElem.checked) {
+                    const pathOpacity = parseInt(pathOpacityElem.value) / 100;
+                    map.selectAll('.path-line').attr('stroke-opacity', pathOpacity);
+                } else {
+                    map.selectAll('.path-line').remove();
+                }
+            }
+
+            // Start animation loop
+            animateLoop();
+        }
+
+        // Pause animation
+        function pauseAnimation() {
+            if (!animationInProgress || animationPaused) {
+                return;
+            }
+
+            animationPaused = true;
+            pauseButton.disabled = true;
+            playButton.disabled = false;
+
+            // Record elapsed time when paused
+            pausedTime = performance.now() - animationStartTime;
+
+            // Cancel animation frame
+            if (animationFrame) {
+                cancelAnimationFrame(animationFrame);
+                animationFrame = null;
+            }
+        }
+
+        // Resume animation
+        function resumeAnimation() {
+            if (!animationInProgress || !animationPaused) {
+                return;
+            }
+
+            animationPaused = false;
+            playButton.disabled = true;
+            pauseButton.disabled = false;
+
+            // Update animation start time, considering elapsed time
+            animationStartTime = performance.now() - pausedTime;
+
+            // Resume animation loop
+            animateLoop();
+        }
+
+        // Stop animation
+        function stopAnimation() {
+            if (!animationInProgress) {
+                return;
+            }
+
+            // Cancel animation frame
+            if (animationFrame) {
+                cancelAnimationFrame(animationFrame);
+                animationFrame = null;
+            }
+
+            // Reset state
+            animationInProgress = false;
+            animationPaused = false;
+            mainPlayButton.disabled = false;
+            playButton.disabled = true;
+            pauseButton.disabled = true;
+            stopButton.disabled = true;
+
+            // Reset timeline
+            timelineMarker.style.left = '0px';
+            timelineProgress.style.width = '0%';
+
+            // Restore original view
+            if (useCanvasElem.checked) {
+                drawCanvas();
+            } else {
+                map.selectAll('.animated-point').remove();
+                plotGPS();
+            }
+        }
+
+        // Animation loop
+        function animateLoop() {
+            // Calculate current progress
+            const now = performance.now();
+            const elapsed = now - animationStartTime;
+            const progress = Math.min(1.0, elapsed / animationTotalDuration);
+
+            // Calculate current time point
+            animationCurrentTime = animationDataStartTime + progress * animationTimeRange;
+
+            // Update timeline position
+            updateTimelinePosition(progress);
+
+            // Update time display
+            updateTimeDisplay(new Date(animationCurrentTime));
+
+            // Render current frame
+            renderAnimationFrame(animationCurrentTime);
+
+            // Check if finished
+            if (progress >= 1.0) {
+                stopAnimation();
+                return;
+            }
+
+            // Continue to next frame
+            animationFrame = requestAnimationFrame(animateLoop);
+        }
+
+        // Render single animation frame
+        function renderAnimationFrame(currentTime) {
+            // Group data by vehicle ID
+            const groupedData = {};
+            downsampledData.forEach(d => {
+                if (!groupedData[d.id]) {
+                    groupedData[d.id] = [];
+                }
+                groupedData[d.id].push(d);
+            });
+
+            // Get point size
+            const pointSize = parseInt(pointSizeElem.value);
+
+            if (useCanvasElem.checked) {
+                // Use Canvas rendering
+                clearCanvas();
+
+                // Redraw static paths
+                if (showTrailElem.checked) {
+                    const pathOpacity = parseInt(pathOpacityElem.value) / 100;
+                    Object.entries(groupedData).forEach(([id, points]) => {
+                        const color = carColors[id];
+
+                        ctx.strokeStyle = color;
+                        ctx.lineWidth = 1;
+                        ctx.globalAlpha = pathOpacity;
+
+                        ctx.beginPath();
+                        const firstPoint = projection([points[0].long, points[0].lat]);
+                        ctx.moveTo(firstPoint[0], firstPoint[1]);
+
+                        for (let i = 1; i < points.length; i++) {
+                            const nextPoint = projection([points[i].long, points[i].lat]);
+                            ctx.lineTo(nextPoint[0], nextPoint[1]);
+                        }
+
+                        ctx.stroke();
+                    });
+                }
+
+                // Draw traversed path
+                Object.entries(groupedData).forEach(([id, points]) => {
+                    const color = carColors[id];
+                    let lastValidPoint = null;
+
+                    // Only draw path up to current time
+                    ctx.strokeStyle = color;
+                    ctx.lineWidth = 2.5;
+                    ctx.globalAlpha = 0.8;
+                    ctx.beginPath();
+
+                    let pathStarted = false;
+
+                    for (let i = 0; i < points.length; i++) {
+                        const pointTime = new Date(points[i].Timestamp).getTime();
+
+                        if (pointTime <= currentTime) {
+                            const [x, y] = projection([points[i].long, points[i].lat]);
+
+                            if (!pathStarted) {
+                                ctx.moveTo(x, y);
+                                pathStarted = true;
+                            } else {
+                                ctx.lineTo(x, y);
+                            }
+
+                            lastValidPoint = points[i];
+                        } else if (lastValidPoint) {
+                            // If we found a valid point and current point exceeds time range, interpolate
+                            const prevTime = new Date(lastValidPoint.Timestamp).getTime();
+                            const t = (currentTime - prevTime) / (pointTime - prevTime);
+
+                            const long = lastValidPoint.long + t * (points[i].long - lastValidPoint.long);
+                            const lat = lastValidPoint.lat + t * (points[i].lat - lastValidPoint.lat);
+
+                            const [x, y] = projection([long, lat]);
+                            ctx.lineTo(x, y);
+                            break;
+                        }
+                    }
+
+                    ctx.stroke();
+                });
+
+                // Draw current position points
+                Object.entries(groupedData).forEach(([id, points]) => {
+                    const color = carColors[id];
+
+                    // Find position at current time
+                    let prevPoint = null;
+                    let nextPoint = null;
+
+                    for (let i = 0; i < points.length - 1; i++) {
+                        const pt1Time = new Date(points[i].Timestamp).getTime();
+                        const pt2Time = new Date(points[i + 1].Timestamp).getTime();
+
+                        if (pt1Time <= currentTime && currentTime <= pt2Time) {
+                            prevPoint = points[i];
+                            nextPoint = points[i + 1];
+                            break;
+                        } else if (pt1Time > currentTime) {
+                            // If first point's time already exceeds current time, use first point
+                            prevPoint = points[0];
+                            nextPoint = points[0];
+                            break;
+                        }
+                    }
+
+                    // If at last few points, use last point
+                    if (!prevPoint && points.length > 0) {
+                        if (currentTime >= new Date(points[points.length - 1].Timestamp).getTime()) {
+                            prevPoint = points[points.length - 1];
+                            nextPoint = points[points.length - 1];
+                        }
+                    }
+
+                    if (prevPoint && nextPoint) {
+                        // Calculate interpolated position
+                        const pt1Time = new Date(prevPoint.Timestamp).getTime();
+                        const pt2Time = new Date(nextPoint.Timestamp).getTime();
+
+                        let t = 0;
+                        if (pt2Time > pt1Time) {
+                            t = (currentTime - pt1Time) / (pt2Time - pt1Time);
+                        }
+
+                        const long = prevPoint.long + t * (nextPoint.long - prevPoint.long);
+                        const lat = prevPoint.lat + t * (nextPoint.lat - prevPoint.lat);
+
+                        const [x, y] = projection([long, lat]);
+
+                        // Draw current position
+                        ctx.globalAlpha = 1.0;
+                        ctx.fillStyle = color;
+                        ctx.beginPath();
+                        ctx.arc(x, y, pointSize + 2, 0, Math.PI * 2);
+                        ctx.fill();
+
+                        ctx.strokeStyle = '#fff';
+                        ctx.lineWidth = 1.5;
+                        ctx.beginPath();
+                        ctx.arc(x, y, pointSize + 2, 0, Math.PI * 2);
+                        ctx.stroke();
+
+                        // Draw vehicle ID
+                        ctx.fillStyle = '#333';
+                        ctx.font = '12px Arial';
+                        ctx.textBaseline = 'bottom';
+                        ctx.fillText(`Vehicle #${id}`, x + 8, y - 8);
+                    }
+                });
+
+                // Reset opacity
+                ctx.globalAlpha = 1.0;
+            } else {
+                // Use SVG rendering
+                map.selectAll('.animated-point').remove();
+
+                // Draw current position points and paths
+                Object.entries(groupedData).forEach(([id, points]) => {
+                    // Find position at current time
+                    let prevPoint = null;
+                    let nextPoint = null;
+                    let validPointsUpToNow = [];
+
+                    for (let i = 0; i < points.length - 1; i++) {
+                        const pt1Time = new Date(points[i].Timestamp).getTime();
+                        const pt2Time = new Date(points[i + 1].Timestamp).getTime();
+
+                        if (pt1Time <= currentTime) {
+                            validPointsUpToNow.push(points[i]);
+                        }
+
+                        if (pt1Time <= currentTime && currentTime <= pt2Time) {
+                            prevPoint = points[i];
+                            nextPoint = points[i + 1];
+                            break;
+                        } else if (pt1Time > currentTime && i === 0) {
+                            // If first point's time already exceeds current time
+                            prevPoint = points[0];
+                            nextPoint = points[0];
+                            break;
+                        }
+                    }
+
+                    // Handle last point
+                    if (points.length > 0) {
+                        const lastPointTime = new Date(points[points.length - 1].Timestamp).getTime();
+                        if (lastPointTime <= currentTime) {
+                            validPointsUpToNow.push(points[points.length - 1]);
+                            prevPoint = points[points.length - 1];
+                            nextPoint = points[points.length - 1];
+                        }
+                    }
+
+                    if (prevPoint && nextPoint) {
+                        // Calculate interpolated position
+                        const pt1Time = new Date(prevPoint.Timestamp).getTime();
+                        const pt2Time = new Date(nextPoint.Timestamp).getTime();
+
+                        let t = 0;
+                        if (pt2Time > pt1Time) {
+                            t = (currentTime - pt1Time) / (pt2Time - pt1Time);
+                        }
+
+                        const long = prevPoint.long + t * (nextPoint.long - prevPoint.long);
+                        const lat = prevPoint.lat + t * (nextPoint.lat - prevPoint.lat);
+
+                        // Draw traversed path
+                        if (validPointsUpToNow.length > 1) {
+                            const lineGenerator = d3.line()
+                                .x(d => projection([d.long, d.lat])[0])
+                                .y(d => projection([d.long, d.lat])[1])
+                                .curve(d3.curveCatmullRom.alpha(0.5));
+
+                            // Add interpolated current point to path end
+                            const enhancedPoints = [...validPointsUpToNow, {long, lat, Timestamp: new Date(currentTime).toISOString()}];
+
+                            map.append('path')
+                                .datum(enhancedPoints)
+                                .attr('class', 'animated-point')
+                                .attr('d', lineGenerator)
+                                .attr('fill', 'none')
+                                .attr('stroke', carColors[id])
+                                .attr('stroke-width', 2.5)
+                                .attr('stroke-opacity', 0.8);
+                        }
+
+                        // Add animation point
+                        map.append('circle')
+                            .attr('class', 'animated-point')
+                            .attr('cx', projection([long, lat])[0])
+                            .attr('cy', projection([long, lat])[1])
+                            .attr('r', pointSize + 2)
+                            .attr('fill', carColors[id])
+                            .attr('stroke', '#fff')
+                            .attr('stroke-width', 1.5);
+
+                        // Add label
+                        map.append('text')
+                            .attr('class', 'animated-point')
+                            .attr('x', projection([long, lat])[0] + 8)
+                            .attr('y', projection([long, lat])[1] - 8)
+                            .attr('fill', '#333')
+                            .attr('font-size', '12px')
+                            .text(`Vehicle #${id}`);
+                    }
+                });
+            }
+        }
+
+        // Clear all selections
+        function clearSelection() {
+            // If animation is in progress, stop it first
+            if (animationInProgress) {
+                stopAnimation();
+            }
+
+            selectedCars = [];
+            document.querySelectorAll('.car-item').forEach(item => {
+                item.classList.remove('selected');
+            });
+
+            carCountElem.textContent = '(0 selected)';
+            dataStatsElem.textContent = '';
+
+            if (useCanvasElem.checked) {
+                clearCanvas();
+            } else {
+                map.selectAll('.gps-point').remove();
+                map.selectAll('.path-line').remove();
+                map.selectAll('.animated-point').remove();
+            }
+        }
+
+        // Initialize application
+        initApp();
     </script>
 </body>
 </html>
