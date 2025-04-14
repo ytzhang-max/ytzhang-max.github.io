@@ -544,10 +544,35 @@
                     .style('stroke-dasharray', '2,4')
                     .style('stroke-width', 1);
 
+                // 修正时间标签位置
+                // 计算标签位置 - 根据小时确定角度
+                let labelX = 0;
+                let labelY = 0;
+                let anchor = 'middle';
+
+                if (hour === 0) { // 12 AM - 顶部
+                    labelX = 0;
+                    labelY = -circleRadius - 5;
+                    anchor = 'middle';
+                } else if (hour === 6) { // 6 AM - 右侧
+                    labelX = circleRadius + 5;
+                    labelY = 0;
+                    anchor = 'start';
+                } else if (hour === 12) { // 12 PM - 底部
+                    labelX = 0;
+                    labelY = circleRadius + 15;
+                    anchor = 'middle';
+                } else if (hour === 18) { // 6 PM - 左侧
+                    labelX = -circleRadius - 5;
+                    labelY = 0;
+                    anchor = 'end';
+                }
+
                 svg.append('text')
-                    .attr('y', -circleRadius - 5)
+                    .attr('x', labelX)
+                    .attr('y', labelY)
                     .attr('class', 'time-label')
-                    .attr('text-anchor', 'middle')
+                    .attr('text-anchor', anchor)
                     .style('fill', '#718096')
                     .style('font-size', '12px')
                     .text(label);
@@ -620,7 +645,8 @@
                 .domain(d3.extent(transactions, d => d.dateObj))
                 .range([0.3 * radius, 0.9 * radius]);
 
-            // Time scale (maps 24 hours to 360 degrees)
+            // 修正时间比例尺 - 正确映射24小时到360度
+            // 重点修改：将时间映射到正确的角度位置
             const timeScale = d3.scaleTime()
                 .domain([parseTime('00:00:00'), parseTime('23:59:59')])
                 .range([0, 2 * Math.PI]);
@@ -633,14 +659,24 @@
                 .attr('class', 'transaction-point')
                 .attr('r', d => Math.min(5, Math.max(3, Math.sqrt(d.price) / 3))) // Size based on price, but with limits
                 .attr('cx', d => {
-                    const angle = timeScale(d.timeObj);
+                    // 修正角度计算 - 使12AM位于顶部
+                    const hour = d.timeObj.getHours();
+                    const minute = d.timeObj.getMinutes();
+                    const second = d.timeObj.getSeconds();
+                    // 将时间转换为角度，顺时针旋转，从顶部(12点位置)开始
+                    const angle = ((hour + minute/60 + second/3600) / 24) * 2 * Math.PI - (Math.PI / 2);
                     const r = dateScale(d.dateObj);
-                    return r * Math.sin(angle);
+                    return r * Math.cos(angle);
                 })
                 .attr('cy', d => {
-                    const angle = timeScale(d.timeObj);
+                    // 修正角度计算
+                    const hour = d.timeObj.getHours();
+                    const minute = d.timeObj.getMinutes();
+                    const second = d.timeObj.getSeconds();
+                    // 将时间转换为角度，顺时针旋转，从顶部(12点位置)开始
+                    const angle = ((hour + minute/60 + second/3600) / 24) * 2 * Math.PI - (Math.PI / 2);
                     const r = dateScale(d.dateObj);
-                    return -r * Math.cos(angle);
+                    return r * Math.sin(angle);
                 })
                 .style('fill', d => colorMap[d.category])
                 .style('opacity', 0.8)
