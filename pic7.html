@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GAStech Data Analysis Dashboard</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f7f9fc;
+            color: #333;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+        h1 {
+            color: #2c3e50;
+            margin-top: 0;
+            font-size: 24px;
+            text-align: center;
+            margin-bottom: 25px;
+        }
+        h2 {
+            color: #34495e;
+            font-size: 18px;
+            margin-top: 20px;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        .controls {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        select, input {
+            padding: 8px 12px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+            background-color: white;
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+        select {
+            cursor: pointer;
+        }
+        select:hover, input:hover {
+            border-color: #aaa;
+        }
+        select:focus, input:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+        }
+        label {
+            font-size: 14px;
+            color: #555;
+        }
+        .tooltip {
+            position: absolute;
+            background-color: rgba(44, 62, 80, 0.9);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            pointer-events: none;
+            opacity: 0;
+            z-index: 10;
+            max-width: 250px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+        .grid line {
+            stroke: #e0e0e0;
+            stroke-opacity: 0.7;
+            shape-rendering: crispEdges;
+        }
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin: 15px 0;
+            gap: 15px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            font-size: 12px;
+            cursor: pointer;
+            padding: 3px 8px;
+            border-radius: 3px;
+            transition: background-color 0.2s;
+        }
+        .legend-item:hover {
+            background-color: #f5f5f5;
+        }
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            margin-right: 5px;
+            border-radius: 2px;
+        }
+        .chart-summary {
+            margin: 10px 0;
+            font-size: 14px;
+            color: #555;
+            text-align: center;
+        }
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 400px;
+            font-size: 18px;
+            color: #666;
+        }
+        .axis text {
+            font-size: 11px;
+            fill: #666;
+        }
+        .axis-title {
+            font-size: 12px;
+            fill: #555;
+        }
+        .no-data {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 400px;
+            font-size: 16px;
+            color: #666;
+            font-style: italic;
+        }
+        .error-message {
+            padding: 20px;
+            background-color: #ffebee;
+            color: #c62828;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .info-panel {
+            background-color: #f1f8ff;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+            border-left: 4px solid #3498db;
+            font-size: 14px;
+            color: #555;
+        }
+        .chart-container {
+            margin-bottom: 20px;
+            min-height: 350px;
+        }
+        .divider {
+            margin: 20px 0;
+            border: 0;
+            height: 1px;
+            background-color: #eee;
+        }
+        .overall-summary {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 5px;
+            text-align: center;
+            font-size: 14px;
+            color: #555;
+        }
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+            }
+            h1 {
+                font-size: 20px;
+            }
+            .controls {
+                flex-direction: column;
+                gap: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>GAStech Employee Activity Dashboard</h1>
+
+        <div class="info-panel">
+            <p>This dashboard compares credit card transactions with vehicle GPS location data.
+            See how the frequency of physical visits (from GPS) aligns with credit card purchases at various locations throughout the day.</p>
+        </div>
+
+        <div class="controls">
+            <div class="control-group">
+                <label for="date-select">Select Date:</label>
+                <select id="date-select"></select>
+            </div>
+
+            <div class="control-group">
+                <label for="vehicle-select">Vehicle ID:</label>
+                <select id="vehicle-select">
+                    <option value="all">All Vehicles</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label for="duration-threshold">Min Visit Duration (minutes):</label>
+                <input type="number" id="duration-threshold" min="1" max="60" value="5" style="width: 60px;">
+            </div>
+        </div>
+
+        <div class="overall-summary" id="overall-summary"></div>
+
+        <!-- Credit Card Chart -->
+        <h2>Credit Card Transactions by Location</h2>
+        <div id="cc-chart" class="chart-container"></div>
+        <div id="cc-legend" class="legend"></div>
+        <div id="cc-summary" class="chart-summary"></div>
+
+        <div class="divider"></div>
+
+        <!-- GPS Chart -->
+        <h2>Vehicle GPS Visits by Location</h2>
+        <div id="gps-chart" class="chart-container"></div>
+        <div id="gps-legend" class="legend"></div>
+        <div id="gps-summary" class="chart-summary"></div>
+    </div>
+
+    <script>
+        // Function to fetch and parse the location coordinates
+        async function loadLocationCoordinates() {
+            try {
+                const response = await fetch("preprocessing_scripts/location_coordinate.json");
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                console.error("Error loading location coordinates:", error);
+                d3.select("#cc-chart").html(
+                    `<div class="error-message">
+                        <h3>Error Loading Location Data</h3>
+                        <p>There was a problem loading the location coordinates file.</p>
+                        <p>Technical details: ${error.message}</p>
+                    </div>`
+                );
+                return [];
+            }
+        }
+
+        // Function to fetch and parse the GPS data
+        async function loadGPSData() {
+            try {
+                const response = await d3.csv("data/gps.csv");
+
+                // Parse the data
+                const data = response.map(d => ({
+                    timestamp: parseTimestamp(d.Timestamp),
+                    id: d.id,
+                    lat: +d.lat,
+                    long: +d.long,
+                    // Extract date and hour for easier filtering
+                    date: formatDate(parseTimestamp(d.Timestamp)),
+                    hour: parseTimestamp(d.Timestamp).getHours()
+                }));
+
+                return data;
+            } catch (error) {
+                console.error("Error loading GPS data:", error);
+                d3.select("#gps-chart").html(
+                    `<div class="error-message">
+                        <h3>Error Loading GPS Data</h3>
+                        <p>There was a problem loading the GPS data file.</p>
+                        <p>Technical details: ${error.message}</p>
+                    </div>`
+                );
+                return [];
+            }
+        }
+
+        // Function to fetch and parse the credit card data
+        async function loadCreditCardData() {
+            try {
+                // Load the data from the CSV file
+                const data = await d3.csv("data/cctime_data.csv", d => ({
+                    timestamp: new Date(d.timestamp),
+                    location: d.location,
+                    price: +d.price,
+                    last4ccnum: d.last4ccnum,
+                    time: d.time,
+                    date: d.date,
+                    hour: new Date(d.timestamp).getHours()
+                }));
+
+                return data;
+            } catch (error) {
+                console.error("Error loading credit card data:", error);
+                d3.select("#cc-chart").html(
+                    `<div class="error-message">
+                        <h3>Error Loading Credit Card Data</h3>
+                        <p>There was a problem loading the credit card data file.</p>
+                        <p>Technical details: ${error.message}</p>
+                    </div>`
+                );
+                return [];
+            }
+        }
+
+        // Parse timestamp in format MM/DD/YYYY HH:MM:SS
+        function parseTimestamp(timestamp) {
+            const parts = timestamp.split(' ');
+            const dateParts = parts[0].split('/');
+            const timeParts = parts[1].split(':');
+
+            // Note: JavaScript months are 0-indexed
+            return new Date(
+                +dateParts[2],  // year
+                +dateParts[0] - 1,  // month (0-indexed)
+                +dateParts[1],  // day
+                +timeParts[0],  // hour
+                +timeParts[1],  // minute
+                +timeParts[2]   // second
+            );
+        }
+
+        // Format date as YYYY-MM-DD
+        function formatDate(date) {
+            return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+        }
+
+        // Check if a GPS point is within a location's range
+        function isPointInLocation(lat, long, location) {
+            const range = location.range;
+            // Check if the point is within the rectangular bounds
+            return (
+                long >= range[0][0] && long <= range[1][0] &&
+                lat <= range[0][1] && lat >= range[1][1]
+            );
+        }
+
+        // Identify visits to locations based on GPS data
+        function identifyVisits(gpsData, locations, durationThresholdMinutes) {
+            const durationThresholdMs = durationThresholdMinutes * 60 * 1000;
+            const visits = [];
+            const vehicleIds = [...new Set(gpsData.map(d => d.id))];
+
+            // Process each vehicle separately
+            vehicleIds.forEach(vehicleId => {
+                const vehicleData = gpsData.filter(d => d.id === vehicleId).sort((a, b) => a.timestamp - b.timestamp);
+
+                // Group consecutive points that are in the same location
+                let currentLocation = null;
+                let startTime = null;
+                let consecutivePoints = [];
+
+                for (let i = 0; i < vehicleData.length; i++) {
+                    const point = vehicleData[i];
+                    let pointLocation = null;
+
+                    // Check which location this point belongs to
+                    for (const location of locations) {
+                        if (isPointInLocation(point.lat, point.long, location)) {
+                            pointLocation = location.name;
+                            break;
+                        }
+                    }
+
+                    // If we're at a new location or at the end of the data
+                    if (pointLocation !== currentLocation || i === vehicleData.length - 1) {
+                        // If we have consecutive points at the previous location, check if it constitutes a visit
+                        if (consecutivePoints.length > 0 && currentLocation) {
+                            const endTime = i === vehicleData.length - 1 && pointLocation === currentLocation ?
+                                point.timestamp : consecutivePoints[consecutivePoints.length - 1].timestamp;
+                            const duration = endTime - startTime;
+
+                            // If the duration meets our threshold, record it as a visit
+                            if (duration >= durationThresholdMs) {
+                                visits.push({
+                                    vehicleId,
+                                    location: currentLocation,
+                                    startTime,
+                                    endTime,
+                                    duration,
+                                    date: formatDate(startTime),
+                                    hour: startTime.getHours()
+                                });
+                            }
+                        }
+
+                        // Start tracking a new potential visit
+                        if (pointLocation) {
+                            currentLocation = pointLocation;
+                            startTime = point.timestamp;
+                            consecutivePoints = [point];
+                        } else {
+                            currentLocation = null;
+                            consecutivePoints = [];
+                        }
+                    } else {
+                        // Continue the current potential visit
+                        consecutivePoints.push(point);
+                    }
+                }
+            });
+
+            return visits;
+        }
+
+        // Calculate Pearson correlation coefficient
+        function calculateCorrelation(x, y) {
+            const n = x.length;
+            if (n === 0) return 0;
+
+            // Calculate means
+            const xMean = x.reduce((a, b) => a + b, 0) / n;
+            const yMean = y.reduce((a, b) => a + b, 0) / n;
+
+            // Calculate numerator and denominators
+            let numerator = 0;
+            let denomX = 0;
+            let denomY = 0;
+
+            for (let i = 0; i < n; i++) {
+                const xDiff = x[i] - xMean;
+                const yDiff = y[i] - yMean;
+                numerator += xDiff * yDiff;
+                denomX += xDiff * xDiff;
+                denomY += yDiff * yDiff;
+            }
+
+            // Avoid division by zero
+            if (denomX === 0 || denomY === 0) return 0;
+
+            return numerator / Math.sqrt(denomX * denomY);
+        }
+
+        // Function to process the data and create the visualization
+        async function createVisualization() {
+            // Show loading messages
+            d3.select("#cc-chart").html('<div class="loading">Loading credit card data...</div>');
+            d3.select("#gps-chart").html('<div class="loading">Loading GPS data...</div>');
+
+            // Load all data sources
+            const [locations, gpsData, creditCardData] = await Promise.all([
+                loadLocationCoordinates(),
+                loadGPSData(),
+                loadCreditCardData()
+            ]);
+
+            if (locations.length === 0 || gpsData.length === 0 || creditCardData.length === 0) {
+                return; // Error already displayed
+            }
+
+            // Extract unique dates from GPS and credit card data
+            const gpsDates = [...new Set(gpsData.map(d => d.date))];
+            const ccDates = [...new Set(creditCardData.map(d => d.date))];
+            const allDates = [...new Set([...gpsDates, ...ccDates])].sort();
+
+            // Populate date selector
+            const dateSelect = d3.select("#date-select");
+            dateSelect
+                .selectAll("option")
+                .data(allDates)
+                .enter()
+                .append("option")
+                .attr("value", d => d)
+                .text(d => {
+                    const date = new Date(d);
+                    return date.toLocaleDateString('en-US', {
+                        weekday: 'short',
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric'
+                    });
+                });
+
+            // Extract unique vehicle IDs
+            const vehicleIds = [...new Set(gpsData.map(d => d.id))].sort((a, b) => a - b);
+
+            // Populate vehicle selector
+            const vehicleSelect = d3.select("#vehicle-select");
+            vehicleIds.forEach(id => {
+                vehicleSelect
+                    .append("option")
+                    .attr("value", id)
+                    .text(`Vehicle ${id}`);
+            });
+
+            // Extract location names
+            const locationNames = locations.map(d => d.name);
+
+            // Create color scale for locations
+            const colorScale = d3.scaleOrdinal()
+                .domain(locationNames)
+                .range(d3.schemeCategory10);
+
+            // Default duration threshold
+            let durationThreshold = +d3.select("#duration-threshold").node().value;
+
+            // Initial identification of visits
+            let visits = identifyVisits(gpsData, locations, durationThreshold);
+
+            // Function to render charts based on selected date and vehicle
+            function renderCharts() {
+                const selectedDate = d3.select("#date-select").node().value;
+                const selectedVehicle = d3.select("#vehicle-select").node().value;
+
+                // Filter data by selected date/vehicle
+                const filteredVisits = selectedVehicle === "all"
+                    ? visits.filter(v => v.date === selectedDate)
+                    : visits.filter(v => v.date === selectedDate && v.vehicleId === selectedVehicle);
+
+                const filteredCC = creditCardData.filter(d => d.date === selectedDate);
+
+                if (filteredVisits.length === 0 && filteredCC.length === 0) {
+                    d3.select("#cc-chart").html('<div class="no-data">No data available for this date</div>');
+                    d3.select("#gps-chart").html('<div class="no-data">No data available for this date</div>');
+                    d3.select("#cc-summary").text("");
+                    d3.select("#gps-summary").text("");
+                    d3.select("#cc-legend").html("");
+                    d3.select("#gps-legend").html("");
+                    d3.select("#overall-summary").html(`
+                        <strong>No data available for ${new Date(selectedDate).toLocaleDateString('en-US', {
+                            weekday: 'long',
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                        })}</strong>
+                    `);
+                    return;
+                }
+
+                // Process hourly data for credit card transactions
+                const hourlyCC = [];
+
+                for (let hour = 0; hour <= 23; hour++) {
+                    const hourCounts = {};
+                    locationNames.forEach(loc => {
+                        hourCounts[loc] = 0;
+                    });
+
+                    // Count transactions for each location at this hour
+                    filteredCC.forEach(d => {
+                        if (d.hour === hour) {
+                            if (hourCounts.hasOwnProperty(d.location)) {
+                                hourCounts[d.location]++;
+                            }
+                        }
+                    });
+
+                    hourlyCC.push({
+                        hour: hour,
+                        counts: hourCounts,
+                        total: Object.values(hourCounts).reduce((a, b) => a + b, 0)
+                    });
+                }
+
+                // Process hourly data for GPS visits
+                const hourlyVisits = [];
+
+                for (let hour = 0; hour <= 23; hour++) {
+                    const hourCounts = {};
+                    locationNames.forEach(loc => {
+                        hourCounts[loc] = 0;
+                    });
+
+                    // Count visits for each location at this hour
+                    filteredVisits.forEach(v => {
+                        if (v.hour === hour) {
+                            hourCounts[v.location]++;
+                        }
+                    });
+
+                    hourlyVisits.push({
+                        hour: hour,
+                        counts: hourCounts,
+                        total: Object.values(hourCounts).reduce((a, b) => a + b, 0)
+                    });
+                }
+
+                // Render Credit Card Chart
+                renderStackedBarChart(
+                    hourlyCC,
+                    "#cc-chart",
+                    "Credit Card Transactions by Hour and Location",
+                    colorScale,
+                    locationNames
+                );
+
+                // Render GPS Chart
+                renderStackedBarChart(
+                    hourlyVisits,
+                    "#gps-chart",
+                    "GPS Location Visits by Hour and Location",
+                    colorScale,
+                    locationNames
+                );
+
+                // Update summaries
+                const totalCC = filteredCC.length;
+                const totalVisits = filteredVisits.length;
+
+                // Count unique locations with activity
+                const locationsWithCC = new Set();
+                filteredCC.forEach(d => {
+                    if (locationNames.includes(d.location)) {
+                        locationsWithCC.add(d.location);
+                    }
+                });
+
+                const locationsWithVisits = new Set(filteredVisits.map(v => v.location));
+                const uniqueLocations = new Set([...locationsWithCC, ...locationsWithVisits]);
+                const totalLocations = uniqueLocations.size;
+
+                // Calculate correlation between hourly totals
+                const correlation = calculateCorrelation(
+                    hourlyCC.map(d => d.total),
+                    hourlyVisits.map(d => d.total)
+                );
+
+                // Find busiest hours
+                const busiestCCHour = hourlyCC.reduce((max, current) =>
+                    current.total > max.total ? current : max, {total: 0}).hour;
+
+                const busiestVisitHour = hourlyVisits.reduce((max, current) =>
+                    current.total > max.total ? current : max, {total: 0}).hour;
+
+                // Update credit card summary
+                d3.select("#cc-summary").html(`
+                    Total credit card transactions: <strong>${totalCC}</strong> •
+                    Busiest hour: <strong>${busiestCCHour}:00</strong> •
+                    Unique locations: <strong>${locationsWithCC.size}</strong>
+                `);
+
+                // Update GPS visit summary
+                const vehicleCountText = selectedVehicle === "all"
+                    ? `Vehicles involved: <strong>${[...new Set(filteredVisits.map(v => v.vehicleId))].length}</strong> • `
+                    : "";
+
+                d3.select("#gps-summary").html(`
+                    Total location visits: <strong>${totalVisits}</strong> •
+                    ${vehicleCountText}
+                    Busiest hour: <strong>${busiestVisitHour}:00</strong> •
+                    Unique locations: <strong>${locationsWithVisits.size}</strong>
+                `);
+
+                // Update overall summary
+                d3.select("#overall-summary").html(`
+                    <strong>${new Date(selectedDate).toLocaleDateString('en-US', {
+                        weekday: 'long',
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                    })}</strong> ${selectedVehicle !== "all" ? ` - Vehicle ${selectedVehicle}` : ''}
+                    <br>
+                    <span style="font-size: 13px; margin-top: 5px; display: block;">
+                        ${totalCC} credit card transactions and ${totalVisits} location visits across ${totalLocations} locations.
+                        Activity correlation: ${correlation.toFixed(2)}
+                    </span>
+                `);
+
+                // Create legends
+                createLegend("#cc-legend", locationsWithCC, filteredCC, colorScale, "cc");
+                createLegend("#gps-legend", locationsWithVisits, filteredVisits, colorScale, "visit");
+            }
+
+            // Function to render a stacked bar chart
+            function renderStackedBarChart(hourlyData, container, title, colorScale, locationNames) {
+                // Clear previous chart
+                d3.select(container).html("");
+
+                if (hourlyData.every(d => d.total === 0)) {
+                    d3.select(container).html('<div class="no-data">No data available for this selection</div>');
+                    return;
+                }
+
+                // Set up dimensions and margins
+                const margin = {top: 30, right: 50, bottom: 60, left: 60};
+                const width = Math.min(1100, window.innerWidth - 80) - margin.left - margin.right;
+                const height = 350 - margin.top - margin.bottom;
+
+                // Create SVG
+                const svg = d3.select(container)
+                    .append("svg")
+                    .attr("width", width + margin.left + margin.right)
+                    .attr("height", height + margin.top + margin.bottom)
+                    .append("g")
+                    .attr("transform", `translate(${margin.left},${margin.top})`);
+
+                // Create scales
+                const x = d3.scaleLinear()
+                    .domain([0, 23])
+                    .range([0, width]);
+
+                // Stack the data
+                const stack = d3.stack()
+                    .keys(locationNames)
+                    .value((d, key) => d.counts[key] || 0);
+
+                const stackedData = stack(hourlyData);
+
+                // Find max value for y scale
+                const yMax = d3.max(stackedData, layer => d3.max(layer, d => d[1]));
+
+                const y = d3.scaleLinear()
+                    .domain([0, yMax])
+                    .range([height, 0])
+                    .nice();
+
+                // Add gridlines
+                svg.append("g")
+                    .attr("class", "grid")
+                    .attr("transform", `translate(0,${height})`)
+                    .call(d3.axisBottom(x)
+                        .tickValues(d3.range(0, 24))
+                        .tickSize(-height)
+                        .tickFormat("")
+                    );
+
+                svg.append("g")
+                    .attr("class", "grid")
+                    .call(d3.axisLeft(y)
+                        .tickSize(-width)
+                        .tickFormat("")
+                    );
+
+                // Add the stacked bars
+                svg.append("g")
+                    .selectAll("g")
+                    .data(stackedData)
+                    .enter()
+                    .append("g")
+                    .attr("fill", d => colorScale(d.key))
+                    .selectAll("rect")
+                    .data(d => d)
+                    .enter()
+                    .append("rect")
+                    .attr("x", d => x(d.data.hour) - 10)
+                    .attr("y", d => y(d[1]))
+                    .attr("height", d => y(d[0]) - y(d[1]))
+                    .attr("width", 20)
+                    .attr("rx", 2)
+                    .attr("opacity", 0.8)
+                    .on("mouseover", function(event, d) {
+                        const location = d3.select(this.parentNode).datum().key;
+                        const count = d[1] - d[0];
+
+                        d3.select(this)
+                            .attr("opacity", 1)
+                            .attr("stroke", "#333")
+                            .attr("stroke-width", 1);
+
+                        tooltip.transition()
+                            .duration(200)
+                            .style("opacity", 0.9);
+
+                        tooltip.html(`
+                            <strong>${location}</strong><br>
+                            Hour: ${d.data.hour}:00<br>
+                            Count: ${count}
+                        `)
+                            .style("left", (event.pageX + 10) + "px")
+                            .style("top", (event.pageY - 28) + "px");
+                    })
+                    .on("mouseout", function() {
+                        d3.select(this)
+                            .attr("opacity", 0.8)
+                            .attr("stroke", "none");
+
+                        tooltip.transition()
+                            .duration(500)
+                            .style("opacity", 0);
+                    });
+
+                // Add X axis
+                svg.append("g")
+                    .attr("class", "axis")
+                    .attr("transform", `translate(0,${height})`)
+                    .call(d3.axisBottom(x)
+                        .tickValues(d3.range(0, 24))
+                        .tickFormat(d => d + ":00")
+                    );
+
+                // Add Y axis
+                svg.append("g")
+                    .attr("class", "axis")
+                    .call(d3.axisLeft(y));
+
+                // Add axis titles
+                svg.append("text")
+                    .attr("class", "axis-title")
+                    .attr("x", width / 2)
+                    .attr("y", height + 40)
+                    .attr("text-anchor", "middle")
+                    .text("Hour of Day");
+
+                svg.append("text")
+                    .attr("class", "axis-title")
+                    .attr("x", -height / 2)
+                    .attr("y", -40)
+                    .attr("text-anchor", "middle")
+                    .attr("transform", "rotate(-90)")
+                    .text("Count");
+
+                // Create tooltip if it doesn't exist
+                if (!d3.select("body").select(".tooltip").size()) {
+                    d3.select("body").append("div")
+                        .attr("class", "tooltip")
+                        .style("opacity", 0);
+                }
+
+                const tooltip = d3.select("body").select(".tooltip");
+            }
+
+            // Function to create a legend
+            function createLegend(container, activeLocations, data, colorScale, type) {
+                const legend = d3.select(container);
+                legend.html("");
+
+                if (activeLocations.size === 0) return;
+
+                // Create array of locations with counts
+                const locationsWithCounts = Array.from(activeLocations)
+                    .map(loc => {
+                        let count = 0;
+                        if (type === "cc") {
+                            count = data.filter(d => d.location === loc).length;
+                        } else {
+                            count = data.filter(v => v.location === loc).length;
+                        }
+                        return { name: loc, count: count };
+                    })
+                    .sort((a, b) => b.count - a.count);
+
+                // Add legend items
+                locationsWithCounts.forEach(loc => {
+                    legend.append("div")
+                        .attr("class", "legend-item")
+                        .on("mouseover", function() {
+                            // Highlight this location in both charts
+                            d3.selectAll("rect")
+                                .attr("opacity", 0.3);
+
+                            d3.selectAll("g")
+                                .filter(d => d && d.key === loc.name)
+                                .selectAll("rect")
+                                .attr("opacity", 1)
+                                .attr("stroke", "#333")
+                                .attr("stroke-width", 1);
+                        })
+                        .on("mouseout", function() {
+                            d3.selectAll("rect")
+                                .attr("opacity", 0.8)
+                                .attr("stroke", "none");
+                        })
+                        .html(`
+                            <div class="legend-color" style="background-color: ${colorScale(loc.name)};"></div>
+                            <span>${loc.name} (${loc.count} ${type === "cc" ? "transactions" : "visits"})</span>
+                        `);
+                });
+            }
+
+            // Handle duration threshold changes
+            d3.select("#duration-threshold").on("change", function() {
+                durationThreshold = +this.value;
+                visits = identifyVisits(gpsData, locations, durationThreshold);
+                renderCharts();
+            });
+
+            // Initial render with first date
+            if (allDates.length > 0) {
+                dateSelect.node().value = allDates[0];
+                renderCharts();
+            }
+
+            // Update charts when selections change
+            dateSelect.on("change", renderCharts);
+            vehicleSelect.on("change", renderCharts);
+
+            // Handle window resize
+            window.addEventListener("resize", renderCharts);
+        }
+
+        // Initialize visualization
+        createVisualization();
+    </script>
+</body>
+</html>
