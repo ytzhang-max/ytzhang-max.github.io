@@ -1,0 +1,1472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anomaly Detection Dashboard</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f7f9fc;
+            color: #333;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+        h1 {
+            color: #2c3e50;
+            margin-top: 0;
+            font-size: 24px;
+            text-align: center;
+            margin-bottom: 25px;
+        }
+        h2 {
+            color: #34495e;
+            font-size: 18px;
+            margin-top: 30px;
+            margin-bottom: 15px;
+        }
+        .controls {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        select, input {
+            padding: 8px 12px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+            background-color: white;
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+        label {
+            font-size: 14px;
+            color: #555;
+        }
+        .anomaly-section {
+            margin-top: 40px;
+            background-color: #f9f9f9;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #e74c3c;
+        }
+        .anomaly-title {
+            color: #e74c3c;
+            margin-top: 0;
+            margin-bottom: 15px;
+            font-size: 20px;
+        }
+        .anomaly-list {
+            list-style-type: none;
+            padding: 0;
+        }
+        .anomaly-item {
+            background-color: white;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+        .anomaly-item:hover {
+            box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+        }
+        .anomaly-type {
+            font-weight: bold;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            margin-right: 10px;
+        }
+        .anomaly-high {
+            background-color: #ffebee;
+            color: #c62828;
+        }
+        .anomaly-medium {
+            background-color: #fff8e1;
+            color: #ff8f00;
+        }
+        .anomaly-low {
+            background-color: #e3f2fd;
+            color: #1565c0;
+        }
+        .anomaly-details {
+            flex: 1;
+            margin-left: 10px;
+        }
+        .anomaly-actions {
+            display: flex;
+            gap: 10px;
+        }
+        .button {
+            background-color: #f1f1f1;
+            border: none;
+            color: #555;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .button:hover {
+            background-color: #e0e0e0;
+        }
+        .button-investigate {
+            background-color: #3498db;
+            color: white;
+        }
+        .button-investigate:hover {
+            background-color: #2980b9;
+        }
+        .anomaly-metrics {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        .metric-box {
+            background-color: white;
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            flex: 1;
+            min-width: 180px;
+            text-align: center;
+        }
+        .metric-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-top: 5px;
+        }
+        .metric-label {
+            font-size: 14px;
+            color: #7f8c8d;
+        }
+        .pattern-section {
+            margin-top: 30px;
+            padding: 15px;
+            background-color: #f1f8ff;
+            border-radius: 8px;
+            border-left: 4px solid #3498db;
+        }
+        .pattern-title {
+            color: #3498db;
+            margin-top: 0;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+        .no-anomalies {
+            text-align: center;
+            padding: 30px;
+            color: #7f8c8d;
+            font-style: italic;
+        }
+        .filters {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .filter-button {
+            background-color: #f1f1f1;
+            border: none;
+            color: #555;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .filter-button:hover, .filter-button.active {
+            background-color: #3498db;
+            color: white;
+        }
+        .divider {
+            margin: 30px 0;
+            border: 0;
+            height: 1px;
+            background-color: #eee;
+        }
+        .chart-container {
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+        .chart {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            min-height: 350px;
+        }
+        .chart-title {
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 16px;
+            color: #555;
+        }
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 300px;
+            font-size: 18px;
+            color: #666;
+        }
+        .tooltip {
+            position: absolute;
+            background-color: rgba(44, 62, 80, 0.9);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            pointer-events: none;
+            opacity: 0;
+            z-index: 10;
+            max-width: 250px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+            }
+            .anomaly-metrics {
+                flex-direction: column;
+            }
+            .metric-box {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Credit Card vs GPS Data Anomaly Analysis</h1>
+
+        <div class="controls">
+            <div class="control-group">
+                <label for="date-select">Select Date:</label>
+                <select id="date-select"></select>
+            </div>
+
+            <div class="control-group">
+                <label for="vehicle-select">Vehicle ID:</label>
+                <select id="vehicle-select">
+                    <option value="all">All Vehicles</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label for="anomaly-threshold">Anomaly Threshold:</label>
+                <select id="anomaly-threshold">
+                    <option value="high">High (Large discrepancies only)</option>
+                    <option value="medium" selected>Medium (Default)</option>
+                    <option value="low">Low (Show minor discrepancies)</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label for="duration-threshold">Min Visit Duration (minutes):</label>
+                <input type="number" id="duration-threshold" min="1" max="60" value="5" style="width: 60px;">
+            </div>
+        </div>
+
+        <div class="anomaly-metrics">
+            <div class="metric-box">
+                <div class="metric-label">High Priority Anomalies</div>
+                <div class="metric-value" id="high-anomaly-count">-</div>
+            </div>
+            <div class="metric-box">
+                <div class="metric-label">Medium Priority Anomalies</div>
+                <div class="metric-value" id="medium-anomaly-count">-</div>
+            </div>
+            <div class="metric-box">
+                <div class="metric-label">Low Priority Anomalies</div>
+                <div class="metric-value" id="low-anomaly-count">-</div>
+            </div>
+            <div class="metric-box">
+                <div class="metric-label">Overall Data Correlation</div>
+                <div class="metric-value" id="correlation-value">-</div>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <div class="chart" id="comparison-chart">
+                <div class="chart-title">Credit Card Transactions vs GPS Visits Comparison</div>
+                <div class="loading">Loading data...</div>
+            </div>
+            <div class="chart" id="diff-chart">
+                <div class="chart-title">Transaction/Visit Discrepancy by Hour</div>
+                <div class="loading">Loading data...</div>
+            </div>
+        </div>
+
+        <div class="filters">
+            <button class="filter-button active" data-filter="all">All Anomalies</button>
+            <button class="filter-button" data-filter="high">High Priority</button>
+            <button class="filter-button" data-filter="medium">Medium Priority</button>
+            <button class="filter-button" data-filter="low">Low Priority</button>
+            <button class="filter-button" data-filter="cc-excess">CC > GPS</button>
+            <button class="filter-button" data-filter="gps-excess">GPS > CC</button>
+        </div>
+
+        <div class="anomaly-section">
+            <h3 class="anomaly-title">Detected Anomalies</h3>
+            <div id="anomaly-container">
+                <div class="no-anomalies">Loading anomaly data...</div>
+            </div>
+        </div>
+
+        <div class="pattern-section">
+            <h3 class="pattern-title">Pattern Analysis</h3>
+            <div id="pattern-analysis">
+                <p>Analyzing patterns in the data...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Function to fetch and parse the location coordinates
+        async function loadLocationCoordinates() {
+            try {
+                const response = await fetch("preprocessing_scripts/location_coordinate.json");
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                console.error("Error loading location coordinates:", error);
+                showError("Error loading location data: " + error.message);
+                return [];
+            }
+        }
+
+        // Function to fetch and parse the GPS data
+        async function loadGPSData() {
+            try {
+                const response = await d3.csv("data/gps.csv");
+
+                // Parse the data
+                const data = response.map(d => ({
+                    timestamp: parseTimestamp(d.Timestamp),
+                    id: d.id,
+                    lat: +d.lat,
+                    long: +d.long,
+                    // Extract date and hour for easier filtering
+                    date: formatDate(parseTimestamp(d.Timestamp)),
+                    hour: parseTimestamp(d.Timestamp).getHours()
+                }));
+
+                return data;
+            } catch (error) {
+                console.error("Error loading GPS data:", error);
+                showError("Error loading GPS data: " + error.message);
+                return [];
+            }
+        }
+
+        // Function to fetch and parse the credit card data
+        async function loadCreditCardData() {
+            try {
+                // Load the data from the CSV file
+                const data = await d3.csv("data/cctime_data.csv", d => ({
+                    timestamp: new Date(d.timestamp),
+                    location: d.location,
+                    price: +d.price,
+                    last4ccnum: d.last4ccnum,
+                    time: d.time,
+                    date: d.date,
+                    hour: new Date(d.timestamp).getHours()
+                }));
+
+                return data;
+            } catch (error) {
+                console.error("Error loading credit card data:", error);
+                showError("Error loading credit card data: " + error.message);
+                return [];
+            }
+        }
+
+        // Function to show error messages
+        function showError(message) {
+            d3.select("#comparison-chart").html(`<div class="error-message" style="color: #c62828; padding: 20px; text-align: center;">${message}</div>`);
+            d3.select("#diff-chart").html(`<div class="error-message" style="color: #c62828; padding: 20px; text-align: center;">${message}</div>`);
+        }
+
+        // Parse timestamp in format MM/DD/YYYY HH:MM:SS
+        function parseTimestamp(timestamp) {
+            const parts = timestamp.split(' ');
+            const dateParts = parts[0].split('/');
+            const timeParts = parts[1].split(':');
+
+            // Note: JavaScript months are 0-indexed
+            return new Date(
+                +dateParts[2],  // year
+                +dateParts[0] - 1,  // month (0-indexed)
+                +dateParts[1],  // day
+                +timeParts[0],  // hour
+                +timeParts[1],  // minute
+                +timeParts[2]   // second
+            );
+        }
+
+        // Format date as YYYY-MM-DD
+        function formatDate(date) {
+            return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+        }
+
+        // Check if a GPS point is within a location's range
+        function isPointInLocation(lat, long, location) {
+            const range = location.range;
+            // Check if the point is within the rectangular bounds
+            return (
+                long >= range[0][0] && long <= range[1][0] &&
+                lat <= range[0][1] && lat >= range[1][1]
+            );
+        }
+
+        // Identify visits to locations based on GPS data
+        function identifyVisits(gpsData, locations, durationThresholdMinutes, selectedVehicle) {
+            const durationThresholdMs = durationThresholdMinutes * 60 * 1000;
+            const visits = [];
+
+            // Filter by vehicle if selected
+            let filteredGpsData = gpsData;
+            if (selectedVehicle !== "all") {
+                filteredGpsData = gpsData.filter(d => d.id === selectedVehicle);
+            }
+
+            const vehicleIds = [...new Set(filteredGpsData.map(d => d.id))];
+
+            // Process each vehicle separately
+            vehicleIds.forEach(vehicleId => {
+                const vehicleData = filteredGpsData.filter(d => d.id === vehicleId).sort((a, b) => a.timestamp - b.timestamp);
+
+                // Group consecutive points that are in the same location
+                let currentLocation = null;
+                let startTime = null;
+                let consecutivePoints = [];
+
+                for (let i = 0; i < vehicleData.length; i++) {
+                    const point = vehicleData[i];
+                    let pointLocation = null;
+
+                    // Check which location this point belongs to
+                    for (const location of locations) {
+                        if (isPointInLocation(point.lat, point.long, location)) {
+                            pointLocation = location.name;
+                            break;
+                        }
+                    }
+
+                    // If we're at a new location or at the end of the data
+                    if (pointLocation !== currentLocation || i === vehicleData.length - 1) {
+                        // If we have consecutive points at the previous location, check if it constitutes a visit
+                        if (consecutivePoints.length > 0 && currentLocation) {
+                            const endTime = i === vehicleData.length - 1 && pointLocation === currentLocation ?
+                                point.timestamp : consecutivePoints[consecutivePoints.length - 1].timestamp;
+                            const duration = endTime - startTime;
+
+                            // If the duration meets our threshold, record it as a visit
+                            if (duration >= durationThresholdMs) {
+                                visits.push({
+                                    vehicleId,
+                                    location: currentLocation,
+                                    startTime,
+                                    endTime,
+                                    duration,
+                                    date: formatDate(startTime),
+                                    hour: startTime.getHours()
+                                });
+                            }
+                        }
+
+                        // Start tracking a new potential visit
+                        if (pointLocation) {
+                            currentLocation = pointLocation;
+                            startTime = point.timestamp;
+                            consecutivePoints = [point];
+                        } else {
+                            currentLocation = null;
+                            consecutivePoints = [];
+                        }
+                    } else {
+                        // Continue the current potential visit
+                        consecutivePoints.push(point);
+                    }
+                }
+            });
+
+            return visits;
+        }
+
+        // Calculate Pearson correlation coefficient
+        function calculateCorrelation(x, y) {
+            const n = x.length;
+            if (n === 0) return 0;
+
+            // Calculate means
+            const xMean = x.reduce((a, b) => a + b, 0) / n;
+            const yMean = y.reduce((a, b) => a + b, 0) / n;
+
+            // Calculate numerator and denominators
+            let numerator = 0;
+            let denomX = 0;
+            let denomY = 0;
+
+            for (let i = 0; i < n; i++) {
+                const xDiff = x[i] - xMean;
+                const yDiff = y[i] - yMean;
+                numerator += xDiff * yDiff;
+                denomX += xDiff * xDiff;
+                denomY += yDiff * yDiff;
+            }
+
+            // Avoid division by zero
+            if (denomX === 0 || denomY === 0) return 0;
+
+            return numerator / Math.sqrt(denomX * denomY);
+        }
+
+        // Function to calculate anomaly priority based on discrepancy
+        function calculateAnomalyPriority(hourData) {
+            const { ccCount, gpsCount, diff, ratio } = hourData;
+
+            // No activity, no anomaly
+            if (ccCount === 0 && gpsCount === 0) {
+                return null;
+            }
+
+            // High activity threshold
+            const highActivity = ccCount > 5 || gpsCount > 5;
+
+            // Absolute difference is large
+            if (diff >= 10 && highActivity) {
+                return "high";
+            }
+
+            // Ratio is very skewed (one is at least 3 times the other)
+            if ((ratio >= 3 || ratio <= 0.33) && highActivity) {
+                return "high";
+            }
+
+            // Medium discrepancy
+            if (diff >= 5 || ratio >= 2 || ratio <= 0.5) {
+                return "medium";
+            }
+
+            // Small discrepancy
+            if (diff >= 2) {
+                return "low";
+            }
+
+            return null;
+        }
+
+        // Function to detect anomalies in the data
+        function detectAnomalies(hourlyData) {
+            const anomalies = [];
+
+            hourlyData.forEach((hourData, index) => {
+                const priority = calculateAnomalyPriority(hourData);
+
+                if (priority) {
+                    anomalies.push({
+                        ...hourData,
+                        priority
+                    });
+                }
+            });
+
+            // Sort anomalies by priority (high to low) and then by difference (large to small)
+            return anomalies.sort((a, b) => {
+                const priorityOrder = { high: 3, medium: 2, low: 1 };
+                if (priorityOrder[a.priority] !== priorityOrder[b.priority]) {
+                    return priorityOrder[b.priority] - priorityOrder[a.priority];
+                }
+                return b.diff - a.diff;
+            });
+        }
+
+        // Function to generate explanation for an anomaly
+        function generateAnomalyExplanation(anomaly) {
+            const { hour, ccCount, gpsCount, ccExcess, priority } = anomaly;
+
+            const timeOfDay =
+                hour < 6 ? "early morning" :
+                hour < 12 ? "morning" :
+                hour < 17 ? "afternoon" :
+                hour < 21 ? "evening" : "night";
+
+            let explanation;
+
+            if (ccExcess) {
+                if (priority === "high") {
+                    explanation = `Significantly more credit card transactions (${ccCount}) than GPS visits (${gpsCount}) during the ${timeOfDay} (${hour}:00). This could indicate:`;
+                    explanation += `<ul>
+                        <li>Credit cards being used without company vehicles present</li>
+                        <li>Multiple employees using cards at the same location</li>
+                        <li>Potential card sharing or unauthorized use</li>
+                    </ul>`;
+                } else {
+                    explanation = `More credit card transactions (${ccCount}) than GPS visits (${gpsCount}) during the ${timeOfDay} (${hour}:00). Possible explanations:`;
+                    explanation += `<ul>
+                        <li>Employees using personal transport but company cards</li>
+                        <li>Multiple transactions during a single visit</li>
+                        <li>GPS data gaps or inaccuracies</li>
+                    </ul>`;
+                }
+            } else {
+                if (priority === "high") {
+                    explanation = `Significantly more GPS visits (${gpsCount}) than credit card transactions (${ccCount}) during the ${timeOfDay} (${hour}:00). This could indicate:`;
+                    explanation += `<ul>
+                        <li>Vehicles visiting locations without making purchases</li>
+                        <li>Use of cash or alternative payment methods</li>
+                        <li>Unauthorized vehicle use</li>
+                        <li>Vehicles parked near businesses without actual visits</li>
+                    </ul>`;
+                } else {
+                    explanation = `More GPS visits (${gpsCount}) than credit card transactions (${ccCount}) during the ${timeOfDay} (${hour}:00). Possible explanations:`;
+                    explanation += `<ul>
+                        <li>Visits for non-purchase reasons (meetings, deliveries)</li>
+                        <li>Credit card data gaps</li>
+                        <li>Use of alternative payment methods</li>
+                    </ul>`;
+                }
+            }
+
+            return explanation;
+        }
+
+        // Function to analyze patterns in the data
+        function analyzePatterns(hourlyData, anomalies, date, selectedVehicle) {
+            // Calculate overall correlation
+            const correlation = calculateCorrelation(
+                hourlyData.map(d => d.ccCount),
+                hourlyData.map(d => d.gpsCount)
+            );
+
+            // Find peak hours for CC and GPS
+            const ccHours = [...hourlyData]
+                .filter(d => d.ccCount > 0)
+                .sort((a, b) => b.ccCount - a.ccCount)
+                .slice(0, 3);
+
+            const gpsHours = [...hourlyData]
+                .filter(d => d.gpsCount > 0)
+                .sort((a, b) => b.gpsCount - a.gpsCount)
+                .slice(0, 3);
+
+            // Count anomalies by priority
+            const highPriority = anomalies.filter(a => a.priority === "high").length;
+            const mediumPriority = anomalies.filter(a => a.priority === "medium").length;
+            const lowPriority = anomalies.filter(a => a.priority === "low").length;
+
+            // Count anomaly types
+            const ccExcess = anomalies.filter(a => a.ccExcess).length;
+            const gpsExcess = anomalies.filter(a => !a.ccExcess).length;
+
+            // Generate pattern analysis text
+            let analysis = "";
+
+            // Add date and vehicle info
+            analysis += `<p><strong>Analysis for ${new Date(date).toLocaleDateString('en-US', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            })}</strong>`;
+
+            if (selectedVehicle !== "all") {
+                analysis += ` <strong>(Vehicle ${selectedVehicle})</strong>`;
+            }
+
+            analysis += `</p>`;
+
+            // Correlation interpretation
+            if (correlation > 0.7) {
+                analysis += `<p>The overall correlation between credit card transactions and GPS visits is <strong>strong</strong> (${correlation.toFixed(2)}), suggesting that most credit card usage aligns with vehicle movements.</p>`;
+            } else if (correlation > 0.4) {
+                analysis += `<p>The overall correlation between credit card transactions and GPS visits is <strong>moderate</strong> (${correlation.toFixed(2)}), indicating some alignment but with notable inconsistencies.</p>`;
+            } else if (!isNaN(correlation)) {
+                analysis += `<p>The overall correlation between credit card transactions and GPS visits is <strong>weak</strong> (${correlation.toFixed(2)}), suggesting significant discrepancies between credit card usage and vehicle movements.</p>`;
+            } else {
+                analysis += `<p>Unable to calculate correlation due to insufficient data.</p>`;
+            }
+
+            // Peak times analysis
+            if (ccHours.length > 0) {
+                analysis += `<p>Credit card activity peaks at `;
+                ccHours.forEach((hour, i) => {
+                    if (hour.ccCount > 0) {
+                        analysis += `${hour.hour}:00 (${hour.ccCount} transactions)`;
+                        if (i < ccHours.length - 1 && i < 2) {
+                            analysis += i === ccHours.length - 2 || i === 1 ? " and " : ", ";
+                        }
+                    }
+                });
+                analysis += `.</p>`;
+            } else {
+                analysis += `<p>No credit card transactions recorded for this date.</p>`;
+            }
+
+            if (gpsHours.length > 0) {
+                analysis += `<p>GPS activity peaks at `;
+                gpsHours.forEach((hour, i) => {
+                    if (hour.gpsCount > 0) {
+                        analysis += `${hour.hour}:00 (${hour.gpsCount} visits)`;
+                        if (i < gpsHours.length - 1 && i < 2) {
+                            analysis += i === gpsHours.length - 2 || i === 1 ? " and " : ", ";
+                        }
+                    }
+                });
+                analysis += `.</p>`;
+            } else {
+                analysis += `<p>No GPS visits recorded for this date.</p>`;
+            }
+
+            // Anomaly summary
+            if (anomalies.length > 0) {
+                analysis += `<p>Detected <strong>${anomalies.length}</strong> potential anomalies (${highPriority} high, ${mediumPriority} medium, and ${lowPriority} low priority).</p>`;
+
+                if (ccExcess > gpsExcess) {
+                    analysis += `<p>Most anomalies (${ccExcess} out of ${anomalies.length}) involve <strong>more credit card transactions than GPS visits</strong>, which could indicate shared card usage or transactions without company vehicles.</p>`;
+                } else if (gpsExcess > ccExcess) {
+                    analysis += `<p>Most anomalies (${gpsExcess} out of ${anomalies.length}) involve <strong>more GPS visits than credit card transactions</strong>, which could indicate vehicle usage without corresponding purchases.</p>`;
+                } else if (ccExcess > 0 || gpsExcess > 0) {
+                    analysis += `<p>Anomalies are evenly split between excess credit card transactions and excess GPS visits.</p>`;
+                }
+
+                // Most anomalous hour
+                if (anomalies.length > 1) {
+                    const anomalyHours = {};
+                    anomalies.forEach(a => {
+                        anomalyHours[a.hour] = (anomalyHours[a.hour] || 0) + 1;
+                    });
+
+                    const mostAnomalousHour = Object.entries(anomalyHours)
+                        .sort((a, b) => b[1] - a[1])[0];
+
+                    analysis += `<p>The hour with the most anomalies is <strong>${mostAnomalousHour[0]}:00</strong> with ${mostAnomalousHour[1]} detected discrepancies.</p>`;
+                }
+            } else {
+                analysis += `<p>No significant anomalies detected for this date and selection.</p>`;
+            }
+
+            return {
+                analysis,
+                metrics: {
+                    correlation: isNaN(correlation) ? 0 : correlation,
+                    highPriority,
+                    mediumPriority,
+                    lowPriority
+                }
+            };
+        }
+
+        // Function to render the comparison chart
+        function renderComparisonChart(hourlyData) {
+            const container = d3.select("#comparison-chart");
+            container.html("");
+
+            if (hourlyData.length === 0) {
+                container.html('<div class="no-anomalies">No data available for the selected date</div>');
+                return;
+            }
+
+            // Set up dimensions and margins
+            const margin = {top: 20, right: 50, bottom: 50, left: 60};
+            const width = container.node().getBoundingClientRect().width - margin.left - margin.right;
+            const height = 300 - margin.top - margin.bottom;
+
+            // Create SVG
+            const svg = container.append("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom)
+                .append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            // Create scales
+            const x = d3.scaleLinear()
+                .domain([0, 23])
+                .range([0, width]);
+
+            const maxValue = d3.max(hourlyData, d => Math.max(d.ccCount, d.gpsCount)) || 0;
+            const yMax = maxValue > 0 ? maxValue * 1.1 : 10;
+
+            const y = d3.scaleLinear()
+                .domain([0, yMax])
+                .range([height, 0])
+                .nice();
+
+            // Create line generators
+            const ccLine = d3.line()
+                .x(d => x(d.hour))
+                .y(d => y(d.ccCount))
+                .curve(d3.curveMonotoneX);
+
+            const gpsLine = d3.line()
+                .x(d => x(d.hour))
+                .y(d => y(d.gpsCount))
+                .curve(d3.curveMonotoneX);
+
+            // Add gridlines
+            svg.append("g")
+                .attr("class", "grid")
+                .attr("transform", `translate(0,${height})`)
+                .call(d3.axisBottom(x)
+                    .tickValues(d3.range(0, 24))
+                    .tickSize(-height)
+                    .tickFormat("")
+                );
+
+            svg.append("g")
+                .attr("class", "grid")
+                .call(d3.axisLeft(y)
+                    .tickSize(-width)
+                    .tickFormat("")
+                );
+
+            // Add axes
+            svg.append("g")
+                .attr("class", "axis")
+                .attr("transform", `translate(0,${height})`)
+                .call(d3.axisBottom(x)
+                    .tickValues(d3.range(0, 24, 2))
+                    .tickFormat(d => d + ":00")
+                );
+
+            svg.append("g")
+                .attr("class", "axis")
+                .call(d3.axisLeft(y));
+
+            // Add credit card line
+            svg.append("path")
+                .datum(hourlyData)
+                .attr("fill", "none")
+                .attr("stroke", "#3498db")
+                .attr("stroke-width", 2)
+                .attr("d", ccLine);
+
+            // Add GPS line
+            svg.append("path")
+                .datum(hourlyData)
+                .attr("fill", "none")
+                .attr("stroke", "#e74c3c")
+                .attr("stroke-width", 2)
+                .attr("d", gpsLine);
+
+            // Add data points for CC
+            svg.selectAll(".cc-point")
+                .data(hourlyData)
+                .enter()
+                .append("circle")
+                .attr("class", "cc-point")
+                .attr("cx", d => x(d.hour))
+                .attr("cy", d => y(d.ccCount))
+                .attr("r", 4)
+                .attr("fill", "#3498db")
+                .attr("stroke", "white")
+                .attr("stroke-width", 1)
+                .on("mouseover", function(event, d) {
+                    tooltip.transition()
+                        .duration(200)
+                        .style("opacity", 0.9);
+                    tooltip.html(`
+                        <strong>Hour: ${d.hour}:00</strong><br>
+                        Credit Card Transactions: ${d.ccCount}<br>
+                        GPS Visits: ${d.gpsCount}<br>
+                        Difference: ${Math.abs(d.ccCount - d.gpsCount)}
+                    `)
+                        .style("left", (event.pageX + 10) + "px")
+                        .style("top", (event.pageY - 28) + "px");
+                })
+                .on("mouseout", function() {
+                    tooltip.transition()
+                        .duration(500)
+                        .style("opacity", 0);
+                });
+
+            // Add data points for GPS
+            svg.selectAll(".gps-point")
+                .data(hourlyData)
+                .enter()
+                .append("circle")
+                .attr("class", "gps-point")
+                .attr("cx", d => x(d.hour))
+                .attr("cy", d => y(d.gpsCount))
+                .attr("r", 4)
+                .attr("fill", "#e74c3c")
+                .attr("stroke", "white")
+                .attr("stroke-width", 1)
+                .on("mouseover", function(event, d) {
+                    tooltip.transition()
+                        .duration(200)
+                        .style("opacity", 0.9);
+                    tooltip.html(`
+                        <strong>Hour: ${d.hour}:00</strong><br>
+                        Credit Card Transactions: ${d.ccCount}<br>
+                        GPS Visits: ${d.gpsCount}<br>
+                        Difference: ${Math.abs(d.ccCount - d.gpsCount)}
+                    `)
+                        .style("left", (event.pageX + 10) + "px")
+                        .style("top", (event.pageY - 28) + "px");
+                })
+                .on("mouseout", function() {
+                    tooltip.transition()
+                        .duration(500)
+                        .style("opacity", 0);
+                });
+
+            // Add legend
+            const legend = svg.append("g")
+                .attr("transform", `translate(${width - 170}, 0)`);
+
+            legend.append("rect")
+                .attr("x", 0)
+                .attr("y", 0)
+                .attr("width", 170)
+                .attr("height", 50)
+                .attr("fill", "white")
+                .attr("stroke", "#ddd")
+                .attr("rx", 4);
+
+            // CC legend item
+            legend.append("line")
+                .attr("x1", 10)
+                .attr("y1", 15)
+                .attr("x2", 30)
+                .attr("y2", 15)
+                .attr("stroke", "#3498db")
+                .attr("stroke-width", 2);
+
+            legend.append("circle")
+                .attr("cx", 20)
+                .attr("cy", 15)
+                .attr("r", 4)
+                .attr("fill", "#3498db")
+                .attr("stroke", "white")
+                .attr("stroke-width", 1);
+
+            legend.append("text")
+                .attr("x", 40)
+                .attr("y", 19)
+                .text("Credit Card Transactions")
+                .attr("font-size", 12);
+
+            // GPS legend item
+            legend.append("line")
+                .attr("x1", 10)
+                .attr("y1", 35)
+                .attr("x2", 30)
+                .attr("y2", 35)
+                .attr("stroke", "#e74c3c")
+                .attr("stroke-width", 2);
+
+            legend.append("circle")
+                .attr("cx", 20)
+                .attr("cy", 35)
+                .attr("r", 4)
+                .attr("fill", "#e74c3c")
+                .attr("stroke", "white")
+                .attr("stroke-width", 1);
+
+            legend.append("text")
+                .attr("x", 40)
+                .attr("y", 39)
+                .text("GPS Location Visits")
+                .attr("font-size", 12);
+
+            // Create tooltip if it doesn't exist
+            if (!d3.select("body").select(".tooltip").size()) {
+                d3.select("body").append("div")
+                    .attr("class", "tooltip")
+                    .style("opacity", 0);
+            }
+
+            const tooltip = d3.select("body").select(".tooltip");
+        }
+
+        // Function to render the difference chart
+        function renderDifferenceChart(hourlyData, anomalies) {
+            const container = d3.select("#diff-chart");
+            container.html("");
+
+            if (hourlyData.length === 0) {
+                container.html('<div class="no-anomalies">No data available for the selected date</div>');
+                return;
+            }
+
+            // Set up dimensions and margins
+            const margin = {top: 20, right: 50, bottom: 50, left: 60};
+            const width = container.node().getBoundingClientRect().width - margin.left - margin.right;
+            const height = 300 - margin.top - margin.bottom;
+
+            // Create SVG
+            const svg = container.append("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom)
+                .append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            // Create scales
+            const x = d3.scaleLinear()
+                .domain([0, 23])
+                .range([0, width]);
+
+            const maxDiff = d3.max(hourlyData, d => {
+                const diff = d.ccCount - d.gpsCount;
+                return Math.abs(diff);
+            }) || 5;
+
+            const y = d3.scaleLinear()
+                .domain([-maxDiff * 1.1, maxDiff * 1.1])
+                .range([height, 0])
+                .nice();
+
+            // Add gridlines
+            svg.append("g")
+                .attr("class", "grid")
+                .attr("transform", `translate(0,${height})`)
+                .call(d3.axisBottom(x)
+                    .tickValues(d3.range(0, 24))
+                    .tickSize(-height)
+                    .tickFormat("")
+                );
+
+            svg.append("g")
+                .attr("class", "grid")
+                .call(d3.axisLeft(y)
+                    .tickSize(-width)
+                    .tickFormat("")
+                );
+
+            // Add zero line
+            svg.append("line")
+                .attr("x1", 0)
+                .attr("y1", y(0))
+                .attr("x2", width)
+                .attr("y2", y(0))
+                .attr("stroke", "#555")
+                .attr("stroke-width", 1.5)
+                .attr("stroke-dasharray", "4");
+
+            // Add axes
+            svg.append("g")
+                .attr("class", "axis")
+                .attr("transform", `translate(0,${height})`)
+                .call(d3.axisBottom(x)
+                    .tickValues(d3.range(0, 24, 2))
+                    .tickFormat(d => d + ":00")
+                );
+
+            svg.append("g")
+                .attr("class", "axis")
+                .call(d3.axisLeft(y));
+
+            // Add bars
+            svg.selectAll(".diff-bar")
+                .data(hourlyData)
+                .enter()
+                .append("rect")
+                .attr("class", "diff-bar")
+                .attr("x", d => x(d.hour) - 8)
+                .attr("y", d => {
+                    const diff = d.ccCount - d.gpsCount;
+                    return diff > 0 ? y(diff) : y(0);
+                })
+                .attr("width", 16)
+                .attr("height", d => {
+                    const diff = d.ccCount - d.gpsCount;
+                    return Math.abs(y(diff) - y(0));
+                })
+                .attr("fill", d => {
+                    const diff = d.ccCount - d.gpsCount;
+                    const anomaly = anomalies.find(a => a.hour === d.hour);
+
+                    if (!anomaly) return diff > 0 ? "#3498db" : "#e74c3c";
+
+                    switch(anomaly.priority) {
+                        case "high": return diff > 0 ? "#c0392b" : "#9b59b6";
+                        case "medium": return diff > 0 ? "#e67e22" : "#f39c12";
+                        case "low": return diff > 0 ? "#3498db" : "#e74c3c";
+                        default: return diff > 0 ? "#3498db" : "#e74c3c";
+                    }
+                })
+                .attr("opacity", 0.8)
+                .attr("rx", 2)
+                .on("mouseover", function(event, d) {
+                    const anomaly = anomalies.find(a => a.hour === d.hour);
+                    const diff = d.ccCount - d.gpsCount;
+
+                    d3.select(this)
+                        .attr("opacity", 1)
+                        .attr("stroke", "#333")
+                        .attr("stroke-width", 1);
+
+                    tooltip.transition()
+                        .duration(200)
+                        .style("opacity", 0.9);
+
+                    let html = `
+                        <strong>Hour: ${d.hour}:00</strong><br>
+                        Credit Card Transactions: ${d.ccCount}<br>
+                        GPS Visits: ${d.gpsCount}<br>
+                        Difference: ${Math.abs(diff)}<br>
+                        ${diff > 0 ? 'CC > GPS' : 'GPS > CC'}
+                    `;
+
+                    if (anomaly) {
+                        html += `<br><br><strong>${anomaly.priority.toUpperCase()} priority anomaly</strong>`;
+                    }
+
+                    tooltip.html(html)
+                        .style("left", (event.pageX + 10) + "px")
+                        .style("top", (event.pageY - 28) + "px");
+                })
+                .on("mouseout", function() {
+                    d3.select(this)
+                        .attr("opacity", 0.8)
+                        .attr("stroke", "none");
+
+                    tooltip.transition()
+                        .duration(500)
+                        .style("opacity", 0);
+                });
+
+            // Add legend
+            const legend = svg.append("g")
+                .attr("transform", `translate(${width - 170}, 0)`);
+
+            legend.append("rect")
+                .attr("x", 0)
+                .attr("y", 0)
+                .attr("width", 170)
+                .attr("height", 80)
+                .attr("fill", "white")
+                .attr("stroke", "#ddd")
+                .attr("rx", 4);
+
+            // CC > GPS legend item
+            legend.append("rect")
+                .attr("x", 10)
+                .attr("y", 12)
+                .attr("width", 12)
+                .attr("height", 12)
+                .attr("fill", "#3498db")
+                .attr("rx", 2);
+
+            legend.append("text")
+                .attr("x", 30)
+                .attr("y", 22)
+                .text("CC > GPS (Normal)")
+                .attr("font-size", 12);
+
+            // GPS > CC legend item
+            legend.append("rect")
+                .attr("x", 10)
+                .attr("y", 37)
+                .attr("width", 12)
+                .attr("height", 12)
+                .attr("fill", "#e74c3c")
+                .attr("rx", 2);
+
+            legend.append("text")
+                .attr("x", 30)
+                .attr("y", 47)
+                .text("GPS > CC (Normal)")
+                .attr("font-size", 12);
+
+            // Anomaly legend item
+            legend.append("rect")
+                .attr("x", 10)
+                .attr("y", 62)
+                .attr("width", 12)
+                .attr("height", 12)
+                .attr("fill", "#c0392b")
+                .attr("rx", 2);
+
+            legend.append("text")
+                .attr("x", 30)
+                .attr("y", 72)
+                .text("High Priority Anomaly")
+                .attr("font-size", 12);
+
+            // Create tooltip if it doesn't exist
+            if (!d3.select("body").select(".tooltip").size()) {
+                d3.select("body").append("div")
+                    .attr("class", "tooltip")
+                    .style("opacity", 0);
+            }
+
+            const tooltip = d3.select("body").select(".tooltip");
+        }
+
+        // Function to render the anomaly list
+        function renderAnomalyList(anomalies, threshold) {
+            const container = d3.select("#anomaly-container");
+            container.html("");
+
+            // Filter anomalies based on threshold
+            let filteredAnomalies = anomalies;
+
+            if (threshold === "high") {
+                filteredAnomalies = anomalies.filter(a => a.priority === "high");
+            } else if (threshold === "medium") {
+                filteredAnomalies = anomalies.filter(a => a.priority === "high" || a.priority === "medium");
+            }
+
+            // Check current filter buttons
+            const activeFilter = d3.select(".filter-button.active").attr("data-filter");
+
+            if (activeFilter === "high") {
+                filteredAnomalies = filteredAnomalies.filter(a => a.priority === "high");
+            } else if (activeFilter === "medium") {
+                filteredAnomalies = filteredAnomalies.filter(a => a.priority === "medium");
+            } else if (activeFilter === "low") {
+                filteredAnomalies = filteredAnomalies.filter(a => a.priority === "low");
+            } else if (activeFilter === "cc-excess") {
+                filteredAnomalies = filteredAnomalies.filter(a => a.ccExcess);
+            } else if (activeFilter === "gps-excess") {
+                filteredAnomalies = filteredAnomalies.filter(a => !a.ccExcess);
+            }
+
+            if (filteredAnomalies.length === 0) {
+                container.html('<div class="no-anomalies">No anomalies match the current filters</div>');
+                return;
+            }
+
+            const list = container.append("ul")
+                .attr("class", "anomaly-list");
+
+            filteredAnomalies.forEach(anomaly => {
+                const listItem = list.append("li")
+                    .attr("class", "anomaly-item");
+
+                const priorityClass = `anomaly-${anomaly.priority}`;
+
+                listItem.append("div")
+                    .attr("class", `anomaly-type ${priorityClass}`)
+                    .text(anomaly.priority.charAt(0).toUpperCase() + anomaly.priority.slice(1));
+
+                const details = listItem.append("div")
+                    .attr("class", "anomaly-details");
+
+                details.append("h3")
+                    .style("margin-top", "0")
+                    .style("font-size", "16px")
+                    .html(`At ${anomaly.hour}:00 - ${anomaly.ccExcess ?
+                        `${anomaly.ccCount} CC transactions but only ${anomaly.gpsCount} GPS visits` :
+                        `${anomaly.gpsCount} GPS visits but only ${anomaly.ccCount} CC transactions`}`);
+
+                const explanation = generateAnomalyExplanation(anomaly);
+                details.append("div")
+                    .style("margin-top", "8px")
+                    .style("font-size", "14px")
+                    .html(explanation);
+
+                const actions = listItem.append("div")
+                    .attr("class", "anomaly-actions");
+
+                actions.append("button")
+                    .attr("class", "button button-investigate")
+                    .text("Investigate")
+                    .on("click", function() {
+                        alert(`Detailed investigation for anomaly at ${anomaly.hour}:00 would be shown here.`);
+                    });
+
+                actions.append("button")
+                    .attr("class", "button")
+                    .text("Dismiss")
+                    .on("click", function() {
+                        listItem.style("opacity", 0.5)
+                            .style("text-decoration", "line-through");
+                    });
+            });
+        }
+
+        // Initialize the dashboard
+        async function initDashboard() {
+            try {
+                // Load location coordinates
+                const locations = await loadLocationCoordinates();
+
+                // Load the data
+                const [gpsData, creditCardData] = await Promise.all([
+                    loadGPSData(),
+                    loadCreditCardData()
+                ]);
+
+                if (locations.length === 0 || gpsData.length === 0 || creditCardData.length === 0) {
+                    showError("Failed to load required data sources.");
+                    return;
+                }
+
+                // Extract unique dates from both datasets
+                const gpsDates = [...new Set(gpsData.map(d => d.date))];
+                const ccDates = [...new Set(creditCardData.map(d => d.date))];
+                const allDates = [...new Set([...gpsDates, ...ccDates])].sort();
+
+                // Populate date selector
+                const dateSelect = d3.select("#date-select");
+                dateSelect.html("");
+
+                allDates.forEach(date => {
+                    dateSelect.append("option")
+                        .attr("value", date)
+                        .text(new Date(date).toLocaleDateString('en-US', {
+                            weekday: 'short',
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric'
+                        }));
+                });
+
+                // Extract unique vehicle IDs
+                const vehicleIds = [...new Set(gpsData.map(d => d.id))].sort((a, b) => a - b);
+
+                // Populate vehicle selector
+                const vehicleSelect = d3.select("#vehicle-select");
+                vehicleSelect.html("<option value='all'>All Vehicles</option>");
+
+                vehicleIds.forEach(id => {
+                    vehicleSelect.append("option")
+                        .attr("value", id)
+                        .text(`Vehicle ${id}`);
+                });
+
+                // Default duration threshold
+                let durationThreshold = +d3.select("#duration-threshold").node().value;
+
+                // Function to process hourly data
+                function processHourlyData(date, selectedVehicle) {
+                    // Filter data by date
+                    const filteredCC = creditCardData.filter(d => d.date === date);
+                    const visits = identifyVisits(gpsData, locations, durationThreshold, selectedVehicle);
+                    const filteredVisits = visits.filter(v => v.date === date);
+
+                    // Process hourly data
+                    const hourlyData = [];
+
+                    for (let hour = 0; hour < 24; hour++) {
+                        const hourCC = filteredCC.filter(d => d.hour === hour).length;
+                        const hourVisits = filteredVisits.filter(v => v.hour === hour).length;
+
+                        const diff = Math.abs(hourCC - hourVisits);
+                        const ratio = hourVisits > 0 ? hourCC / hourVisits : hourCC > 0 ? Infinity : 1;
+
+                        hourlyData.push({
+                            hour,
+                            ccCount: hourCC,
+                            gpsCount: hourVisits,
+                            diff,
+                            ratio,
+                            ccExcess: hourCC > hourVisits
+                        });
+                    }
+
+                    return hourlyData;
+                }
+
+                // Function to update the dashboard
+                function updateDashboard() {
+                    // Get current selections
+                    const selectedDate = dateSelect.node().value;
+                    const selectedVehicle = vehicleSelect.node().value;
+                    const thresholdValue = d3.select("#anomaly-threshold").node().value;
+
+                    if (!selectedDate) {
+                        showError("No date selected or no data available.");
+                        return;
+                    }
+
+                    // Process data
+                    const hourlyData = processHourlyData(selectedDate, selectedVehicle);
+
+                    // Detect anomalies
+                    const anomalies = detectAnomalies(hourlyData);
+
+                    // Analyze patterns
+                    const { analysis, metrics } = analyzePatterns(hourlyData, anomalies, selectedDate, selectedVehicle);
+
+                    // Update pattern analysis
+                    d3.select("#pattern-analysis").html(analysis);
+
+                    // Update metrics
+                    d3.select("#correlation-value").text(metrics.correlation.toFixed(2));
+                    d3.select("#high-anomaly-count").text(metrics.highPriority);
+                    d3.select("#medium-anomaly-count").text(metrics.mediumPriority);
+                    d3.select("#low-anomaly-count").text(metrics.lowPriority);
+
+                    // Render charts
+                    renderComparisonChart(hourlyData);
+                    renderDifferenceChart(hourlyData, anomalies);
+
+                    // Render anomaly list
+                    renderAnomalyList(anomalies, thresholdValue);
+                }
+
+                // Initial render with first date
+                if (allDates.length > 0) {
+                    dateSelect.node().value = allDates[0];
+                    updateDashboard();
+                } else {
+                    showError("No data available for analysis.");
+                }
+
+                // Handle duration threshold changes
+                d3.select("#duration-threshold").on("change", function() {
+                    durationThreshold = +this.value;
+                    updateDashboard();
+                });
+
+                // Update dashboard when selections change
+                dateSelect.on("change", updateDashboard);
+                vehicleSelect.on("change", updateDashboard);
+                d3.select("#anomaly-threshold").on("change", updateDashboard);
+
+                // Handle filter buttons
+                d3.selectAll(".filter-button").on("click", function() {
+                    d3.selectAll(".filter-button").classed("active", false);
+                    d3.select(this).classed("active", true);
+
+                    const thresholdValue = d3.select("#anomaly-threshold").node().value;
+                    const selectedDate = dateSelect.node().value;
+                    const selectedVehicle = vehicleSelect.node().value;
+
+                    const hourlyData = processHourlyData(selectedDate, selectedVehicle);
+                    const anomalies = detectAnomalies(hourlyData);
+
+                    renderAnomalyList(anomalies, thresholdValue);
+                });
+
+                // Handle window resize
+                window.addEventListener("resize", updateDashboard);
+
+            } catch (error) {
+                console.error("Error initializing dashboard:", error);
+                showError("Error initializing dashboard: " + error.message);
+            }
+        }
+
+        // Initialize the dashboard when the page loads
+        document.addEventListener("DOMContentLoaded", initDashboard);
+    </script>
+</body>
+</html>
