@@ -142,6 +142,9 @@
             padding: 30px;
             transition: transform 0.3s ease, box-shadow 0.3s ease;
             text-align: center;
+            display: flex;
+            flex-direction: column;
+            min-height: 300px;
         }
 
         .feature-card:hover {
@@ -153,6 +156,22 @@
             font-size: 48px;
             color: #3498db;
             margin-bottom: 20px;
+        }
+
+        .feature-content {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .feature-card p {
+            margin-bottom: 20px;
+            flex-grow: 1;
+        }
+
+        .feature-card .btn {
+            margin-top: auto;
+            align-self: center;
         }
 
         h2 {
@@ -204,15 +223,15 @@
 <body>
     <header>
         <div class="nav-container">
-            <a href="index.html" class="logo">Data Viz</a>
+            <a href="index.html" class="logo">5005 Group 6</a>
             <ul class="nav-menu">
-                <li class="nav-item"><a href="pic1.html" class="nav-link">Transaction Data</a></li>
-                <li class="nav-item"><a href="pic2.html" class="nav-link">Price Distribution</a></li>
-                <li class="nav-item"><a href="pic3.html" class="nav-link">Visualization 3</a></li>
+                <li class="nav-item"><a href="pic1.html" class="nav-link">Popular Location</a></li>
+                <li class="nav-item"><a href="pic2.html" class="nav-link">Transaction Distribution</a></li>
+                <li class="nav-item"><a href="pic3.html" class="nav-link">Price Anomalies</a></li>
                 <li class="nav-item"><a href="pic4.html" class="nav-link">Vehicle Tracking</a></li>
-                <li class="nav-item"><a href="pic7.html" class="nav-link">Activity Dashboard</a></li>
+                <li class="nav-item"><a href="pic7.html" class="nav-link">Vehicle VS Card</a></li>
                 <li class="nav-item"><a href="pic8.html" class="nav-link">Anomaly Detection</a></li>
-                <li class="nav-item"><a href="pic9.html" class="nav-link">Relationship Analysis</a></li>
+                <li class="nav-item"><a href="pic9.html" class="nav-link">Ownership Analysis</a></li>
             </ul>
         </div>
     </header>
@@ -222,63 +241,77 @@
             <h1>Data Visualization Dashboard</h1>
             <p>Explore our interactive data visualizations that provide insights into complex datasets through intuitive visual representations.</p>
             <div class="btn-container">
-                <a href="pic1.html" class="btn">Transaction Data</a>
-                <a href="pic2.html" class="btn">Price Distribution</a>
-                <a href="pic3.html" class="btn">Visualization 3</a>
+                <a href="pic1.html" class="btn">Popular Location</a>
+                <a href="pic3.html" class="btn">Transaction Distribution</a>
+                <a href="pic2.html" class="btn">Price Anomalies</a>
                 <a href="pic4.html" class="btn">Vehicle Tracking</a>
-                <a href="pic7.html" class="btn">Activity Dashboard</a>
+                <a href="pic7.html" class="btn">Vehicle VS Card</a>
                 <a href="pic8.html" class="btn">Anomaly Detection</a>
-                <a href="pic9.html" class="btn">Relationship Analysis</a>
+                <a href="pic9.html" class="btn">Ownership Analysis</a>
             </div>
         </section>
 
         <section class="features">
             <div class="feature-card">
-                <div class="feature-icon">📊</div>
-                <h2>Time Series Analysis</h2>
-                <p>Explore temporal patterns and trends with our interactive time series visualization.</p>
+                <div class="feature-content">
+                    <div class="feature-icon">📊</div>
+                    <h2>Popular Location</h2>
+                    <p>Circular Double-Layer Bar Chart to show popular locations</p>
+                </div>
                 <a href="pic1.html" class="btn btn-secondary">View Details</a>
             </div>
 
             <div class="feature-card">
-                <div class="feature-icon">📈</div>
-                <h2>Distribution Analysis</h2>
-                <p>Understand data distributions and statistical properties through visual representations.</p>
-                <a href="pic2.html" class="btn btn-secondary">View Details</a>
-            </div>
-
-            <div class="feature-card">
-                <div class="feature-icon">🔄</div>
-                <h2>Correlation Dashboard</h2>
-                <p>Discover relationships between variables with our interactive correlation visualizations.</p>
+                <div class="feature-content">
+                    <div class="feature-icon">🔄</div>
+                    <h2>Transaction Distribution</h2>
+                    <p>Multidimensional Scatter Plot to show credit card transaction</p>
+                </div>
                 <a href="pic3.html" class="btn btn-secondary">View Details</a>
             </div>
 
             <div class="feature-card">
-                <div class="feature-icon">🚗</div>
-                <h2>Vehicle Tracking System</h2>
-                <p>Track vehicle movements and analyze route patterns with our interactive GPS visualization system.</p>
+                <div class="feature-content">
+                    <div class="feature-icon">📈</div>
+                    <h2>Price Anomalies</h2>
+                    <p>Box plot to show the distribution of transaction prices across various locations</p>
+                </div>
+                <a href="pic2.html" class="btn btn-secondary">View Details</a>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-content">
+                    <div class="feature-icon">🚗</div>
+                    <h2>Vehicle Tracking</h2>
+                    <p>Map visualization tool for tracking vehicle routes</p>
+                </div>
                 <a href="pic4.html" class="btn btn-secondary">View Details</a>
             </div>
 
             <div class="feature-card">
-                <div class="feature-icon">📱</div>
-                <h2>Activity Dashboard</h2>
-                <p>Compare credit card transactions with GPS location data to analyze employee activity patterns.</p>
+                <div class="feature-content">
+                    <div class="feature-icon">📱</div>
+                    <h2>Vehicle VS Card</h2>
+                    <p>Stacked bar charts of hourly distribution of credit card transactions and vehicle GPS</p>
+                </div>
                 <a href="pic7.html" class="btn btn-secondary">View Details</a>
             </div>
 
             <div class="feature-card">
-                <div class="feature-icon">🔍</div>
-                <h2>Anomaly Detection</h2>
-                <p>Identify and analyze discrepancies between credit card and GPS data to detect potential anomalies.</p>
+                <div class="feature-content">
+                    <div class="feature-icon">🔍</div>
+                    <h2>Anomaly Detection</h2>
+                    <p>Identify and analyze discrepancies between credit card and GPS data to detect potential anomalies.</p>
+                </div>
                 <a href="pic8.html" class="btn btn-secondary">View Details</a>
             </div>
 
             <div class="feature-card">
-                <div class="feature-icon">🔗</div>
-                <h2>Relationship Analysis</h2>
-                <p>Analyze connections between vehicles, credit cards, and loyalty cards to identify ownership relationships and patterns.</p>
+                <div class="feature-content">
+                    <div class="feature-icon">🔗</div>
+                    <h2>Ownership Analysis</h2>
+                    <p>Analyze connections between vehicles, credit cards, and loyalty cards to identify ownership relationships and patterns.</p>
+                </div>
                 <a href="pic9.html" class="btn btn-secondary">View Details</a>
             </div>
         </section>
