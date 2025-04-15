@@ -1,0 +1,2373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Credit Card & Loyalty Card Ownership Analysis</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3-sankey@0.12.3/dist/d3-sankey.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f7f9fc;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+
+        h1 {
+            color: #2c3e50;
+            margin: 0;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            color: #7f8c8d;
+            margin-top: 10px;
+            font-size: 16px;
+        }
+
+        .analysis-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            padding: 20px;
+        }
+
+        .card-title {
+            color: #2c3e50;
+            font-size: 18px;
+            margin-top: 0;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #ecf0f1;
+        }
+
+        .visualization-container {
+            min-height: 500px;
+            position: relative;
+        }
+
+        .table-container {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #ecf0f1;
+        }
+
+        thead {
+            background-color: #f8f9fa;
+        }
+
+        th {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        tr:hover {
+            background-color: #f8f9fa;
+        }
+
+        .confidence {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .high {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .medium {
+            background-color: #fff8e1;
+            color: #ff8f00;
+        }
+
+        .low {
+            background-color: #ffebee;
+            color: #c62828;
+        }
+
+        .findings {
+            margin-top: 30px;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 50px;
+            padding: 20px;
+            color: #7f8c8d;
+            font-size: 14px;
+            border-top: 1px solid #ecf0f1;
+        }
+
+        .tooltip {
+            position: absolute;
+            background-color: rgba(44, 62, 80, 0.9);
+            color: #fff;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            pointer-events: none;
+            opacity: 0;
+            z-index: 10;
+            max-width: 250px;
+        }
+
+        .highlight-box {
+            background-color: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+
+        .uncertainty-note {
+            background-color: #fff8e1;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            margin-top: 10px;
+            gap: 15px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-right: 20px;
+        }
+
+        .legend-color {
+            width: 15px;
+            height: 15px;
+            margin-right: 6px;
+            border-radius: 3px;
+        }
+
+        .analysis-summary {
+            margin-top: 30px;
+            padding: 20px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 300px;
+            font-size: 18px;
+            color: #666;
+        }
+
+        .error-message {
+            padding: 20px;
+            color: #c62828;
+            background-color: #ffebee;
+            border-radius: 4px;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .filter-controls {
+            margin-bottom: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            min-width: 200px;
+        }
+
+        .filter-controls select {
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            margin-top: 5px;
+        }
+
+        @media (max-width: 768px) {
+            .analysis-section {
+                grid-template-columns: 1fr;
+            }
+
+            .card {
+                margin-bottom: 20px;
+            }
+        }
+
+        /* Network graph styles */
+        .relationships-network, .sankey-container {
+            width: 100%;
+            height: 700px;  /* Increased height */
+            margin-top: 20px;
+            border: 1px solid #eee;
+            border-radius: 5px;
+            background-color: #fafafa;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .node-circle {
+            stroke-width: 2px;
+            stroke: #fff;
+            cursor: pointer;
+        }
+
+        .node-employee {
+            fill: #74b9ff;
+        }
+
+        .node-vehicle {
+            fill: #a29bfe;
+        }
+
+        .node-cc {
+            fill: #ff7675;
+        }
+
+        .node-loyalty {
+            fill: #55efc4;
+        }
+
+        .node-label {
+            font-size: 12px;
+            text-anchor: middle;
+            pointer-events: none;
+            font-weight: 500;
+            fill: #333;
+            text-shadow: 0 0 3px white, 0 0 3px white, 0 0 3px white, 0 0 3px white;
+        }
+
+        .node-sublabel {
+            font-size: 10px;
+            text-anchor: middle;
+            fill: #666;
+            pointer-events: none;
+            text-shadow: 0 0 3px white, 0 0 3px white, 0 0 3px white, 0 0 3px white;
+        }
+
+        .link-line {
+            stroke-opacity: 0.4;
+        }
+
+        .link-emp-vehicle {
+            stroke: #74b9ff;
+        }
+
+        .link-vehicle-cc {
+            stroke: #a29bfe;
+        }
+
+        .link-cc-loyalty {
+            stroke: #ff7675;
+        }
+
+        .zoom-controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            z-index: 5;
+        }
+
+        .zoom-button {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background-color: white;
+            border: 1px solid #ddd;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .zoom-button:hover {
+            background-color: #f5f5f5;
+        }
+
+        .focus-controls {
+            margin-top: 10px;
+            margin-bottom: 15px;
+        }
+
+        .focus-button {
+            background-color: #f1f1f1;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 5px 12px;
+            margin-right: 10px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .focus-button:hover {
+            background-color: #e9e9e9;
+        }
+
+        .focus-button.active {
+            background-color: #3498db;
+            color: white;
+            border-color: #2980b9;
+        }
+
+        /* Group lasso selection styles */
+        .group-node {
+            stroke: #333;
+            stroke-width: 1px;
+            fill-opacity: 0.1;
+        }
+
+        .group-label {
+            font-size: 14px;
+            font-weight: bold;
+            text-anchor: middle;
+            fill: #333;
+            pointer-events: none;
+        }
+
+        .highlighted .node-circle {
+            stroke: gold;
+            stroke-width: 3px;
+        }
+
+        /* Sankey specific styles */
+        .node rect {
+            cursor: move;
+            fill-opacity: 0.9;
+            shape-rendering: crispEdges;
+        }
+
+        .node text {
+            pointer-events: none;
+            font-size: 9px !important;
+            font-weight: 500 !important;
+            fill: #333 !important;
+            text-shadow: 0 0 3px #fff, 0 0 3px #fff !important;
+        }
+
+        .link {
+            fill: none;
+            stroke-opacity: 0.5; /* Increased opacity */
+        }
+
+        .link:hover {
+            stroke-opacity: 0.8;
+        }
+
+        /* View tabs */
+        .view-tabs {
+            display: flex;
+            border-bottom: 1px solid #ddd;
+            margin-bottom: 15px;
+        }
+
+        .view-tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            border: 1px solid transparent;
+            border-bottom: none;
+            border-top-left-radius: 4px;
+            border-top-right-radius: 4px;
+            font-weight: 500;
+        }
+
+        .view-tab.active {
+            background-color: white;
+            border-color: #ddd;
+            margin-bottom: -1px;
+            color: #3498db;
+        }
+
+        .view-tab:hover:not(.active) {
+            background-color: #f5f5f5;
+        }
+
+        .view-content {
+            display: none;
+        }
+
+        .view-content.active {
+            display: block;
+        }
+
+        /* Search box */
+        .search-container {
+            position: relative;
+            margin-bottom: 15px;
+            max-width: 400px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 10px 15px;
+            padding-left: 40px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #95a5a6;
+        }
+
+        .search-results {
+            position: absolute;
+            width: 100%;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            max-height: 300px;
+            overflow-y: auto;
+            z-index: 10;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            display: none;
+        }
+
+        .search-result-item {
+            padding: 10px 15px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+        }
+
+        .search-result-item:hover {
+            background-color: #f5f5f5;
+        }
+
+        .search-result-item .result-type {
+            font-size: 11px;
+            color: #7f8c8d;
+            margin-left: 5px;
+        }
+
+        .search-result-item .result-confidence {
+            float: right;
+            font-size: 12px;
+        }
+
+        /* Highlight found items */
+        .search-highlight .node-circle {
+            stroke: #e74c3c;
+            stroke-width: 4px;
+            stroke-dasharray: 5;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { stroke-opacity: 1; }
+            50% { stroke-opacity: 0.5; }
+            100% { stroke-opacity: 1; }
+        }
+
+        /* Sankey node label improvements */
+        .node-label-bg {
+            fill: white;
+            fill-opacity: 0.95;
+            rx: 2;
+            ry: 2;
+        }
+
+        /* Better layout for Sankey node placement */
+        .sankey-type-label {
+            text-anchor: middle;
+            font-size: 16px;
+            font-weight: bold;
+            fill: #2c3e50;
+        }
+
+        /* Category background for Sankey */
+        .category-bg {
+            fill-opacity: 0.05;
+            stroke: #ccc;
+            stroke-width: 1;
+            stroke-dasharray: 5, 5;
+        }
+
+        /* Sankey custom fixes */
+        .sankey-custom-node text {
+            dominant-baseline: middle;
+        }
+
+        /* Fix label spacing */
+        .sankey-label {
+            white-space: nowrap;
+            overflow: visible !important;
+            font-size: 9px !important;
+        }
+
+        /* Wider links */
+        .sankey-link {
+            stroke-width: 3px !important; /* Make links wider */
+        }
+
+        /* Sankey container specific height */
+        .sankey-container {
+            height: 900px;  /* Increased height to accommodate more nodes */
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Credit Card & Loyalty Card Ownership Analysis</h1>
+            <p class="subtitle">Inferring ownership relationships between employees, vehicles, credit cards, and loyalty cards</p>
+        </header>
+
+        <div class="card">
+            <h2 class="card-title">Relationship Visualization</h2>
+
+            <div class="search-container">
+                <span class="search-icon">🔍</span>
+                <input type="text" class="search-input" placeholder="Search for employee, vehicle, credit card or loyalty card...">
+                <div class="search-results"></div>
+            </div>
+
+            <div class="view-tabs">
+                <div class="view-tab active" data-view="network">Network Graph</div>
+                <div class="view-tab" data-view="sankey">Sankey Diagram</div>
+            </div>
+
+            <div class="view-content active" id="network-view">
+                <div class="filter-controls">
+                    <div class="filter-group">
+                        <label for="relationshipFilter">Relationship strength:</label>
+                        <select id="relationshipFilter">
+                            <option value="all">Show All Relationships</option>
+                            <option value="strong" selected>Show Strong Relationships Only</option>
+                            <option value="strongest">Show Only Strongest Relationships</option>
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label for="entityFilter">Entity type:</label>
+                        <select id="entityFilter">
+                            <option value="all" selected>Show All Entities</option>
+                            <option value="employees">Employees Only</option>
+                            <option value="vehicles">Vehicles Only</option>
+                            <option value="creditcards">Credit Cards Only</option>
+                            <option value="loyaltycards">Loyalty Cards Only</option>
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label for="layoutFilter">Layout style:</label>
+                        <select id="layoutFilter">
+                            <option value="force" selected>Force-Directed</option>
+                            <option value="radial">Radial Layout</option>
+                            <option value="grouped">Grouped by Type</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="focus-controls">
+                    <button class="focus-button" data-focus="all">Show All</button>
+                    <button class="focus-button" data-focus="high">High Confidence Only</button>
+                    <button class="focus-button" data-focus="medium">Medium Confidence Only</button>
+                    <button class="focus-button" data-focus="low">Low Confidence Only</button>
+                </div>
+
+                <div style="position: relative;">
+                    <div id="network-container" class="relationships-network">
+                        <div class="loading">Loading visualization...</div>
+                    </div>
+
+                    <div class="zoom-controls">
+                        <div class="zoom-button" id="zoom-in">+</div>
+                        <div class="zoom-button" id="zoom-out">-</div>
+                        <div class="zoom-button" id="zoom-reset">R</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="view-content" id="sankey-view">
+                <div style="position: relative;">
+                    <div id="sankey-container" class="sankey-container">
+                        <div class="loading">Loading Sankey diagram showing all relationships...</div>
+                    </div>
+
+                    <div class="zoom-controls">
+                        <div class="zoom-button" id="sankey-zoom-in">+</div>
+                        <div class="zoom-button" id="sankey-zoom-out">-</div>
+                        <div class="zoom-button" id="sankey-zoom-reset">R</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #74b9ff;"></div>
+                    <span>Employee</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #a29bfe;"></div>
+                    <span>Vehicle</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #ff7675;"></div>
+                    <span>Credit Card</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #55efc4;"></div>
+                    <span>Loyalty Card</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="analysis-section">
+            <div class="card">
+                <h2 class="card-title">Employee-Card Mapping</h2>
+                <div class="table-container">
+                    <table id="ownership-table">
+                        <thead>
+                            <tr>
+                                <th>Employee</th>
+                                <th>Vehicle ID</th>
+                                <th>Credit Card</th>
+                                <th>Loyalty Card</th>
+                                <th>Confidence</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td colspan="5" class="loading">Loading data...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2 class="card-title">Key Findings</h2>
+
+                <div class="highlight-box">
+                    <p><strong>High Confidence Matches:</strong> Several employees show strong connections between their assigned vehicles, credit cards, and loyalty cards based on high frequency of co-occurrence.</p>
+                </div>
+
+                <div class="uncertainty-note">
+                    <p><strong>Uncertainties:</strong> Some vehicles show connections to multiple credit cards with similar frequencies, making definitive assignments challenging.</p>
+                </div>
+
+                <div class="findings">
+                    <h3>Evidence Methodology</h3>
+                    <p>Our analysis relies on:</p>
+                    <ul>
+                        <li>Co-occurrence frequency between vehicles and credit cards</li>
+                        <li>Direct mapping between credit cards and loyalty cards</li>
+                        <li>Known vehicle assignments to employees</li>
+                    </ul>
+
+                    <h3>Uncertainty Factors</h3>
+                    <ul>
+                        <li>Shared vehicles or credit cards between employees</li>
+                        <li>Instances where multiple credit cards have similar usage patterns</li>
+                        <li>Limited sample size for some vehicles/cards</li>
+                        <li>Temporal gaps in data collection</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="analysis-summary">
+            <h2>Analysis Summary</h2>
+            <p>By analyzing the co-occurrence patterns between vehicles, credit cards, and loyalty cards, we've established ownership relationships with varying degrees of confidence. The strongest matches show consistent patterns of usage that suggest a single owner, while weaker matches may indicate shared usage or data limitations.</p>
+
+            <p>Our methodology compares vehicle locations with credit card transaction timestamps and locations to establish connections. These connections are further strengthened when we can link credit cards to loyalty cards through co-occurrence patterns.</p>
+
+            <p>The primary uncertainties in our analysis come from potential shared usage of resources, temporal limitations in the data, and cases where the frequency distributions don't show a clear primary user. Additional data sources, such as employee schedules or more granular location data, could help refine these connections further.</p>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>© 2025 Data Analysis Project | Data Visualization Dashboard</p>
+    </div>
+
+    <script>
+        // Create tooltip
+        const tooltip = d3.select("body").append("div")
+            .attr("class", "tooltip")
+            .style("opacity", 0);
+
+        // Define paths for data files
+        const dataFiles = {
+            ccLoyaltyMapping: "pre_processed_data/cc_loyalty_one_to_one_mapping.csv",
+            carCcMapping: "pre_processed_data/car_cc_mapping_bufferMinutes=5_speed=20_distance=0.22_minutesGap=0.5.json",
+            carAssignments: "data/car-assignments.csv"
+        };
+
+        // Global variables to store data and visualizations
+        let globalData = null;
+        let networkZoom = null;
+        let sankeyZoom = null;
+        let highlightedNode = null;
+
+        // Function to show error message
+        function showError(container, message) {
+            container.html(`<div class="error-message">${message}</div>`);
+        }
+
+        // Load all datasets
+        Promise.all([
+            d3.csv(dataFiles.ccLoyaltyMapping),
+            d3.json(dataFiles.carCcMapping),
+            d3.csv(dataFiles.carAssignments)
+        ]).then(function(datasets) {
+            const [ccLoyaltyMapping, carCcMapping, carAssignments] = datasets;
+
+            // Check if data loaded correctly
+            if (!ccLoyaltyMapping || !carCcMapping || !carAssignments) {
+                throw new Error("Failed to load one or more datasets");
+            }
+
+            // Process the data for analysis
+            globalData = processData(ccLoyaltyMapping, carCcMapping, carAssignments);
+
+            // Render the visualizations and tables
+            renderNetworkGraph(globalData);
+            renderSankeyDiagram(globalData);
+            renderTable(globalData);
+            setupSearch(globalData);
+
+            // Set up event listeners
+            setupEventListeners(globalData);
+        }).catch(function(error) {
+            console.error("Error loading data:", error);
+            showError(d3.select("#network-container"), "Error loading data: " + error.message);
+            showError(d3.select("#sankey-container"), "Error loading data: " + error.message);
+            showError(d3.select("#ownership-table tbody"), "Error loading data: " + error.message);
+        });
+
+        function processData(ccLoyaltyMapping, carCcMapping, carAssignments) {
+            // Initialize the processed data structure
+            const data = {
+                nodes: [],
+                links: [],
+                employees: [],
+                vehicles: [],
+                creditCards: [],
+                loyaltyCards: [],
+                employeeVehicles: {},
+                vehicleCreditCards: {},
+                creditCardLoyaltyCards: {},
+                ownership: []
+            };
+
+            // Helper to safely add a node and avoid duplicates
+            function addNode(id, name, type, extraData = {}) {
+                // Check if node already exists
+                if (!data.nodes.some(n => n.id === id)) {
+                    data.nodes.push({
+                        id: id,
+                        name: name,
+                        type: type,
+                        ...extraData
+                    });
+                }
+            }
+
+            // Helper to safely add a link
+            function addLink(source, target, value, type) {
+                // Only add link if both source and target nodes exist
+                if (data.nodes.some(n => n.id === source) && data.nodes.some(n => n.id === target)) {
+                    data.links.push({
+                        source: source,
+                        target: target,
+                        value: value,
+                        type: type
+                    });
+                } else {
+                    console.warn(`Skipping link: ${source} -> ${target} (missing node)`);
+                }
+            }
+
+            // Process car assignments (employee to vehicle mapping)
+            carAssignments.forEach(assignment => {
+                const employee = `${assignment.FirstName} ${assignment.LastName}`;
+                const vehicleId = assignment.CarID;
+                const vehicleNodeId = `Vehicle-${vehicleId}`;
+
+                addNode(employee, employee, 'employee', {
+                    firstName: assignment.FirstName,
+                    lastName: assignment.LastName,
+                    employmentType: assignment.CurrentEmploymentType,
+                    title: assignment.CurrentEmploymentTitle
+                });
+
+                addNode(vehicleNodeId, `Vehicle ${vehicleId}`, 'vehicle', {
+                    vehicleId: vehicleId
+                });
+
+                if (!data.employees.includes(employee)) {
+                    data.employees.push(employee);
+                }
+
+                if (!data.vehicles.includes(vehicleId)) {
+                    data.vehicles.push(vehicleId);
+                }
+
+                data.employeeVehicles[employee] = vehicleId;
+
+                // Add employee-vehicle link
+                addLink(employee, vehicleNodeId, 1, 'emp-vehicle');
+            });
+
+            // First create all credit card nodes
+            Object.keys(carCcMapping).forEach(vehicleId => {
+                const creditCards = carCcMapping[vehicleId];
+
+                Object.keys(creditCards).forEach(creditCard => {
+                    const ccNodeId = `CC-${creditCard}`;
+                    addNode(ccNodeId, `CC ${creditCard}`, 'cc', {
+                        cardNumber: creditCard
+                    });
+
+                    if (!data.creditCards.includes(creditCard)) {
+                        data.creditCards.push(creditCard);
+                    }
+                });
+            });
+
+            // Create all loyalty card nodes
+            ccLoyaltyMapping.forEach(mapping => {
+                const loyaltyCard = mapping.loyalty_num;
+                addNode(loyaltyCard, loyaltyCard, 'loyalty', {
+                    cardNumber: loyaltyCard.replace('L', '')
+                });
+
+                if (!data.loyaltyCards.includes(loyaltyCard)) {
+                    data.loyaltyCards.push(loyaltyCard);
+                }
+            });
+
+            // Now create vehicle-cc links
+            Object.keys(carCcMapping).forEach(vehicleId => {
+                const creditCards = carCcMapping[vehicleId];
+                const vehicleNodeId = `Vehicle-${vehicleId}`;
+
+                // Only proceed if the vehicle node exists
+                if (data.nodes.some(n => n.id === vehicleNodeId)) {
+                    data.vehicleCreditCards[vehicleId] = {};
+
+                    Object.keys(creditCards).forEach(creditCard => {
+                        const frequency = creditCards[creditCard];
+                        const ccNodeId = `CC-${creditCard}`;
+
+                        data.vehicleCreditCards[vehicleId][creditCard] = frequency;
+
+                        // Add vehicle-creditcard link (only if both nodes exist)
+                        addLink(vehicleNodeId, ccNodeId, frequency, 'vehicle-cc');
+                    });
+                }
+            });
+
+            // Create cc-loyalty links
+            ccLoyaltyMapping.forEach(mapping => {
+                const creditCard = mapping.cc_num;
+                const loyaltyCard = mapping.loyalty_num;
+                const frequency = +mapping.frequency;
+                const ccNodeId = `CC-${creditCard}`;
+
+                if (!data.creditCardLoyaltyCards[creditCard]) {
+                    data.creditCardLoyaltyCards[creditCard] = {};
+                }
+
+                data.creditCardLoyaltyCards[creditCard][loyaltyCard] = frequency;
+
+                // Add creditcard-loyaltycard link (only if both nodes exist)
+                addLink(ccNodeId, loyaltyCard, frequency, 'cc-loyalty');
+            });
+
+            // Generate ownership mappings
+            data.employees.forEach(employee => {
+                const vehicleId = data.employeeVehicles[employee];
+
+                if (vehicleId && data.vehicleCreditCards[vehicleId]) {
+                    const vehicleCreditCards = data.vehicleCreditCards[vehicleId];
+
+                    // Skip if no credit cards are associated with this vehicle
+                    if (Object.keys(vehicleCreditCards).length === 0) {
+                        return;
+                    }
+
+                    // Find most frequent credit card for this vehicle
+                    let topCreditCards = Object.keys(vehicleCreditCards)
+                        .sort((a, b) => vehicleCreditCards[b] - vehicleCreditCards[a]);
+
+                    // Skip if no credit cards are left after filtering
+                    if (topCreditCards.length === 0) {
+                        return;
+                    }
+
+                    // Get the top credit card and its frequency
+                    const topCreditCard = topCreditCards[0];
+                    const topFrequency = vehicleCreditCards[topCreditCard];
+
+                    // Check for credit cards with similar frequencies (within 20%)
+                    const similarFrequencyCCs = topCreditCards.filter(cc =>
+                        vehicleCreditCards[cc] >= topFrequency * 0.8
+                    );
+
+                    // Determine confidence based on how many credit cards have similar frequencies
+                    let confidence = "high";
+                    if (similarFrequencyCCs.length > 2) {
+                        confidence = "low";
+                    } else if (similarFrequencyCCs.length > 1) {
+                        confidence = "medium";
+                    }
+
+                    // Find the loyalty card for this credit card
+                    let topLoyaltyCard = null;
+                    let loyaltyFrequency = 0;
+
+                    if (data.creditCardLoyaltyCards[topCreditCard]) {
+                        const loyaltyCards = data.creditCardLoyaltyCards[topCreditCard];
+
+                        // Find most frequent loyalty card for this credit card
+                        const loyaltyEntries = Object.entries(loyaltyCards);
+                        if (loyaltyEntries.length > 0) {
+                            loyaltyEntries.sort((a, b) => b[1] - a[1]);
+                            topLoyaltyCard = loyaltyEntries[0][0];
+                            loyaltyFrequency = loyaltyEntries[0][1];
+                        }
+                    }
+
+                    // Add to ownership data
+                    data.ownership.push({
+                        employee,
+                        vehicleId,
+                        creditCard: topCreditCard,
+                        ccFrequency: topFrequency,
+                        loyaltyCard: topLoyaltyCard,
+                        loyaltyFrequency,
+                        confidence,
+                        similarCards: similarFrequencyCCs
+                    });
+
+                    // Find the nodes and add confidence property
+                    const empNode = data.nodes.find(n => n.id === employee);
+                    const vehNode = data.nodes.find(n => n.id === `Vehicle-${vehicleId}`);
+                    const ccNode = data.nodes.find(n => n.id === `CC-${topCreditCard}`);
+
+                    if (empNode) empNode.confidence = confidence;
+                    if (vehNode) vehNode.confidence = confidence;
+                    if (ccNode) ccNode.confidence = confidence;
+
+                    // If there's a loyalty card, add confidence to it too
+                    if (topLoyaltyCard) {
+                        const lcNode = data.nodes.find(n => n.id === topLoyaltyCard);
+                        if (lcNode) lcNode.confidence = confidence;
+                    }
+                }
+            });
+
+            // Prepare custom Sankey data for displaying four columns
+            data.customSankeyNodes = [];
+            data.customSankeyLinks = [];
+
+            // Create node indices
+            let nodeIndex = 0;
+            const nodeMap = new Map();
+
+            // Add employee nodes (first column) - SKIPPED FOR SANKEY
+
+            // Add vehicle nodes (first column now)
+            data.vehicles.forEach(vehicleId => {
+                const vehicleNodeId = `Vehicle-${vehicleId}`;
+                const node = data.nodes.find(n => n.id === vehicleNodeId);
+                if (node) {
+                    data.customSankeyNodes.push({
+                        id: node.id,
+                        name: node.name,
+                        type: 'vehicle',
+                        confidence: node.confidence || 'unknown',
+                        column: 0  // Now first column
+                    });
+                    nodeMap.set(node.id, nodeIndex++);
+                }
+            });
+
+            // Add credit card nodes (second column now)
+            data.creditCards.forEach(cc => {
+                const ccNodeId = `CC-${cc}`;
+                const node = data.nodes.find(n => n.id === ccNodeId);
+                if (node) {
+                    data.customSankeyNodes.push({
+                        id: node.id,
+                        name: node.name,
+                        type: 'cc',
+                        confidence: node.confidence || 'unknown',
+                        column: 1  // Now second column
+                    });
+                    nodeMap.set(node.id, nodeIndex++);
+                }
+            });
+
+            // Add loyalty card nodes (third column now)
+            data.loyaltyCards.forEach(lc => {
+                const node = data.nodes.find(n => n.id === lc);
+                if (node) {
+                    data.customSankeyNodes.push({
+                        id: node.id,
+                        name: node.name,
+                        type: 'loyalty',
+                        confidence: node.confidence || 'unknown',
+                        column: 2  // Now third column
+                    });
+                    nodeMap.set(node.id, nodeIndex++);
+                }
+            });
+
+            // Create links using node indices from the map - Only vehicle-cc and cc-loyalty links
+            data.links.forEach(link => {
+                // Skip employee-vehicle links for Sankey
+                if (link.type === 'emp-vehicle') return;
+
+                // Only include vehicle-cc and cc-loyalty links
+                if (nodeMap.has(link.source) && nodeMap.has(link.target)) {
+                    data.customSankeyLinks.push({
+                        source: nodeMap.get(link.source),
+                        target: nodeMap.get(link.target),
+                        value: link.value,
+                        type: link.type
+                    });
+                }
+            });
+
+            // Log some stats to help with debugging
+            console.log("Data processed:");
+            console.log("Nodes:", data.nodes.length);
+            console.log("Links:", data.links.length);
+            console.log("Employees:", data.employees.length);
+            console.log("Vehicles:", data.vehicles.length);
+            console.log("Credit Cards:", data.creditCards.length);
+            console.log("Loyalty Cards:", data.loyaltyCards.length);
+            console.log("Custom Sankey Nodes:", data.customSankeyNodes.length);
+            console.log("Custom Sankey Links:", data.customSankeyLinks.length);
+
+            return data;
+        }
+
+        function renderNetworkGraph(data) {
+            const container = d3.select("#network-container");
+            container.html("");
+
+            const width = container.node().getBoundingClientRect().width;
+            const height = 700; // Increased height for better spacing
+
+            // Create SVG with zoom support
+            const svg = container.append("svg")
+                .attr("width", width)
+                .attr("height", height);
+
+            // Add zoom functionality
+            networkZoom = d3.zoom()
+                .scaleExtent([0.1, 4])
+                .on("zoom", zoomed);
+
+            svg.call(networkZoom);
+
+            // Create a group that will be transformed by zoom
+            const g = svg.append("g");
+
+            function zoomed(event) {
+                g.attr("transform", event.transform);
+            }
+
+            // Get current filter settings
+            const relationshipStrength = d3.select("#relationshipFilter").node().value;
+            const entityFilter = d3.select("#entityFilter").node().value;
+            const layoutFilter = d3.select("#layoutFilter").node().value;
+            const confidenceFilter = document.querySelector(".focus-button.active")?.dataset.focus || "all";
+
+            // Filter links based on strength
+            let filteredLinks = [...data.links];
+            if (relationshipStrength === "strong") {
+                // Filter only connections with value > 2 for non-employee-vehicle links
+                filteredLinks = data.links.filter(link =>
+                    link.type === "emp-vehicle" || link.value > 2
+                );
+            } else if (relationshipStrength === "strongest") {
+                // For each source, only keep the strongest link
+                const sourceGroups = {};
+
+                // Group links by source
+                data.links.forEach(link => {
+                    if (!sourceGroups[link.source]) {
+                        sourceGroups[link.source] = [];
+                    }
+                    sourceGroups[link.source].push(link);
+                });
+
+                // For each source, find the strongest links
+                filteredLinks = [];
+                Object.keys(sourceGroups).forEach(source => {
+                    const sourceLinks = sourceGroups[source];
+
+                    if (sourceLinks.length === 0) return;
+
+                    // Sort by value
+                    sourceLinks.sort((a, b) => b.value - a.value);
+
+                    // Always include employee-vehicle links
+                    sourceLinks.forEach(link => {
+                        if (link.type === "emp-vehicle") {
+                            filteredLinks.push(link);
+                        }
+                    });
+
+                    // Add the strongest non-employee-vehicle link
+                    for (const link of sourceLinks) {
+                        if (link.type !== "emp-vehicle") {
+                            filteredLinks.push(link);
+                            break;
+                        }
+                    }
+                });
+            }
+
+            // Get nodes from ownership data for confidence filtering
+            const ownershipNodeIds = new Set();
+
+            if (confidenceFilter !== "all") {
+                data.ownership
+                    .filter(o => o.confidence === confidenceFilter)
+                    .forEach(o => {
+                        ownershipNodeIds.add(o.employee);
+                        ownershipNodeIds.add(`Vehicle-${o.vehicleId}`);
+                        ownershipNodeIds.add(`CC-${o.creditCard}`);
+                        if (o.loyaltyCard) ownershipNodeIds.add(o.loyaltyCard);
+                    });
+
+                // Only keep links between these nodes
+                filteredLinks = filteredLinks.filter(link => {
+                    return ownershipNodeIds.has(link.source) && ownershipNodeIds.has(link.target);
+                });
+            }
+
+            // Get used nodes from filtered links
+            const usedNodeIds = new Set();
+            filteredLinks.forEach(link => {
+                usedNodeIds.add(link.source);
+                usedNodeIds.add(link.target);
+            });
+
+            // Filter nodes based on entity type and used status
+            let filteredNodes = data.nodes.filter(node => usedNodeIds.has(node.id));
+
+            if (entityFilter !== "all") {
+                // Map filter value to node type
+                const typeMap = {
+                    "employees": "employee",
+                    "vehicles": "vehicle",
+                    "creditcards": "cc",
+                    "loyaltycards": "loyalty"
+                };
+
+                const selectedType = typeMap[entityFilter];
+
+                // Include selected type and connected nodes
+                const connectedNodeIds = new Set();
+                filteredLinks.forEach(link => {
+                    const sourceNode = data.nodes.find(n => n.id === link.source);
+                    const targetNode = data.nodes.find(n => n.id === link.target);
+
+                    if (sourceNode && sourceNode.type === selectedType) {
+                        connectedNodeIds.add(link.target);
+                    }
+
+                    if (targetNode && targetNode.type === selectedType) {
+                        connectedNodeIds.add(link.source);
+                    }
+                });
+
+                filteredNodes = data.nodes.filter(node =>
+                    node.type === selectedType || connectedNodeIds.has(node.id)
+                );
+
+                // Update links to only include those between filtered nodes
+                const nodeIds = new Set(filteredNodes.map(n => n.id));
+                filteredLinks = filteredLinks.filter(link =>
+                    nodeIds.has(link.source) && nodeIds.has(link.target)
+                );
+            }
+
+            // If too few nodes, zoom to fit them better
+            if (filteredNodes.length < 5) {
+                svg.call(networkZoom.transform, d3.zoomIdentity.scale(2).translate(width/4, height/4));
+            } else if (filteredNodes.length < 10) {
+                svg.call(networkZoom.transform, d3.zoomIdentity.scale(1.5).translate(width/6, height/6));
+            }
+
+            // Create a copy of filtered nodes and links for the simulation
+            const simulationNodes = filteredNodes.map(d => ({...d}));
+            const simulationLinks = filteredLinks.map(d => ({...d}));
+
+            // Set up force simulation with increased forces
+            const simulation = d3.forceSimulation(simulationNodes)
+                .force("link", d3.forceLink(simulationLinks).id(d => d.id).distance(150)) // Increased distance
+                .force("charge", d3.forceManyBody().strength(-600)) // Stronger charge
+                .force("center", d3.forceCenter(width / 2, height / 2))
+                .force("collision", d3.forceCollide().radius(45)); // Larger collision radius
+
+            // If using grouping layout
+            if (layoutFilter === "grouped") {
+                // Turn off regular forces
+                simulation.force("link").strength(0.3); // Weaken link force
+                simulation.force("charge").strength(-200); // Weaken charge
+
+                // Add force to group by type
+                simulation.force("x", d3.forceX(d => {
+                    // Position categories along the x-axis
+                    switch(d.type) {
+                        case 'employee': return width * 0.2;
+                        case 'vehicle': return width * 0.4;
+                        case 'cc': return width * 0.6;
+                        case 'loyalty': return width * 0.8;
+                        default: return width / 2;
+                    }
+                }).strength(0.3));
+
+                simulation.force("y", d3.forceY(d => {
+                    // Slight vertical offset based on node characteristics
+                    return height / 2 + (d.confidence === "high" ? -50 :
+                                         d.confidence === "medium" ? 0 : 50);
+                }).strength(0.1));
+            }
+
+            // If using radial layout
+            if (layoutFilter === "radial") {
+                // Turn off regular forces
+                simulation.force("link").strength(0.3); // Weaken link force
+                simulation.force("charge").strength(-100); // Weaken charge
+
+                // Add radial force
+                simulation.force("r", d3.forceRadial(d => {
+                    // Different radii for different types
+                    switch(d.type) {
+                        case 'employee': return 100;
+                        case 'vehicle': return 200;
+                        case 'cc': return 300;
+                        case 'loyalty': return 400;
+                        default: return 250;
+                    }
+                }, width / 2, height / 2).strength(0.8));
+            }
+
+            // Create background groups for node types
+            if (layoutFilter === "grouped") {
+                const groups = [
+                    { type: 'employee', name: 'Employees', x: width * 0.2, y: height / 2, r: 110 },
+                    { type: 'vehicle', name: 'Vehicles', x: width * 0.4, y: height / 2, r: 110 },
+                    { type: 'cc', name: 'Credit Cards', x: width * 0.6, y: height / 2, r: 110 },
+                    { type: 'loyalty', name: 'Loyalty Cards', x: width * 0.8, y: height / 2, r: 110 }
+                ];
+
+                g.selectAll(".group-node")
+                    .data(groups)
+                    .enter()
+                    .append("circle")
+                    .attr("class", "group-node")
+                    .attr("cx", d => d.x)
+                    .attr("cy", d => d.y)
+                    .attr("r", d => d.r)
+                    .attr("fill", d => {
+                        switch(d.type) {
+                            case 'employee': return '#74b9ff';
+                            case 'vehicle': return '#a29bfe';
+                            case 'cc': return '#ff7675';
+                            case 'loyalty': return '#55efc4';
+                        }
+                    });
+
+                g.selectAll(".group-label")
+                    .data(groups)
+                    .enter()
+                    .append("text")
+                    .attr("class", "group-label")
+                    .attr("x", d => d.x)
+                    .attr("y", d => d.y - d.r - 10)
+                    .text(d => d.name);
+            }
+
+            // Add link lines with varying width based on value
+            const link = g.append("g")
+                .selectAll("line")
+                .data(simulationLinks)
+                .enter().append("line")
+                .attr("class", d => `link-line link-${d.type}`)
+                .attr("stroke-width", d => Math.max(1, Math.min(5, Math.log(d.value + 1))));
+
+            // Create node groups
+            const node = g.append("g")
+                .selectAll(".node")
+                .data(simulationNodes)
+                .enter().append("g")
+                .attr("class", d => `node ${d.confidence ? d.confidence : ""}`)
+                .attr("data-id", d => d.id)
+                .call(d3.drag()
+                    .on("start", dragstarted)
+                    .on("drag", dragged)
+                    .on("end", dragended));
+
+            // Add circles for nodes with scaled sizes
+            node.append("circle")
+                .attr("r", d => getNodeRadius(d))
+                .attr("class", d => `node-circle node-${d.type}`)
+                .on("mouseover", function(event, d) {
+                    // Show tooltip
+                    tooltip.transition()
+                        .duration(200)
+                        .style("opacity", .9);
+
+                    let tooltipContent = `<strong>${d.name}</strong><br>`;
+                    tooltipContent += `Type: ${getNodeTypeName(d.type)}`;
+
+                    if (d.confidence) {
+                        tooltipContent += `<br>Confidence: ${d.confidence.charAt(0).toUpperCase() + d.confidence.slice(1)}`;
+                    }
+
+                    tooltip.html(tooltipContent)
+                        .style("left", (event.pageX + 10) + "px")
+                        .style("top", (event.pageY - 28) + "px");
+
+                    // Highlight connected links
+                    link.style("opacity", l =>
+                        l.source.id === d.id || l.target.id === d.id ? 1 : 0.1
+                    );
+
+                    // Highlight connected nodes
+                    node.style("opacity", n => {
+                        if (n.id === d.id) return 1;
+
+                        // Check if connected
+                        const isConnected = simulationLinks.some(l =>
+                            (l.source.id === d.id && l.target.id === n.id) ||
+                            (l.source.id === n.id && l.target.id === d.id)
+                        );
+
+                        return isConnected ? 1 : 0.2;
+                    });
+
+                    // Add highlight class
+                    d3.select(this.parentNode).classed("highlighted", true);
+                })
+                .on("mouseout", function() {
+                    // Don't reset if we're during search highlight
+                    if (highlightedNode) return;
+
+                    // Hide tooltip
+                    tooltip.transition()
+                        .duration(500)
+                        .style("opacity", 0);
+
+                    // Reset highlights
+                    link.style("opacity", 1);
+                    node.style("opacity", 1);
+
+                    // Remove highlight class
+                    d3.select(this.parentNode).classed("highlighted", false);
+                })
+                .on("click", function(event, d) {
+                    // Handle node click - could be for searching
+                    if (highlightedNode === d.id) {
+                        // If already highlighted, clear it
+                        highlightedNode = null;
+                        clearSearchHighlight();
+                    }
+                });
+
+            // Add labels for nodes, but only if not too many nodes
+            if (simulationNodes.length < 100) {
+                node.append("text")
+                    .attr("class", "node-label")
+                    .attr("dy", d => getNodeRadius(d) + 15)
+                    .text(d => getNodeLabel(d))
+                    .each(function(d) {
+                        // Background for better readability
+                        const bbox = this.getBBox();
+                        const parent = this.parentNode;
+
+                        d3.select(parent)
+                            .insert("rect", "text")
+                            .attr("x", bbox.x - 2)
+                            .attr("y", bbox.y - 2)
+                            .attr("width", bbox.width + 4)
+                            .attr("height", bbox.height + 4)
+                            .attr("fill", "white")
+                            .attr("fill-opacity", 0.7)
+                            .attr("rx", 2);
+                    });
+            }
+
+            // Update positions on each tick
+            simulation.on("tick", () => {
+                // Contain nodes within bounds with padding
+                simulationNodes.forEach(d => {
+                    d.x = Math.max(40, Math.min(width - 40, d.x));
+                    d.y = Math.max(40, Math.min(height - 40, d.y));
+                });
+
+                link
+                    .attr("x1", d => d.source.x)
+                    .attr("y1", d => d.source.y)
+                    .attr("x2", d => d.target.x)
+                    .attr("y2", d => d.target.y);
+
+                node.attr("transform", d => `translate(${d.x},${d.y})`);
+            });
+
+            // Set up zoom control buttons
+            d3.select("#zoom-in").on("click", () => {
+                svg.transition().duration(300).call(networkZoom.scaleBy, 1.3);
+            });
+
+            d3.select("#zoom-out").on("click", () => {
+                svg.transition().duration(300).call(networkZoom.scaleBy, 0.7);
+            });
+
+            d3.select("#zoom-reset").on("click", () => {
+                svg.transition().duration(300).call(
+                    networkZoom.transform,
+                    d3.zoomIdentity.translate(0, 0).scale(1)
+                );
+            });
+
+            // Drag functions
+            function dragstarted(event, d) {
+                if (!event.active) simulation.alphaTarget(0.3).restart();
+                d.fx = d.x;
+                d.fy = d.y;
+            }
+
+            function dragged(event, d) {
+                d.fx = event.x;
+                d.fy = event.y;
+            }
+
+            function dragended(event, d) {
+                if (!event.active) simulation.alphaTarget(0);
+
+                // Keep nodes fixed where user dragged them
+                // This helps users organize the layout manually
+                // d.fx = null;
+                // d.fy = null;
+            }
+
+            // Store references for search functionality
+            window.networkElements = {
+                svg: svg,
+                zoom: networkZoom,
+                node: node,
+                link: link
+            };
+
+            // If there's a highlighted node from search, restore highlight
+            if (highlightedNode) {
+                highlightNodeInNetwork(highlightedNode);
+            }
+
+            // Helper functions
+            function getNodeRadius(d) {
+                // Base size by type
+                let baseSize;
+                switch(d.type) {
+                    case 'employee': baseSize = 15; break;
+                    case 'vehicle': baseSize = 12; break;
+                    case 'cc': baseSize = 10; break;
+                    case 'loyalty': baseSize = 8; break;
+                    default: baseSize = 8;
+                }
+
+                // Adjust size by confidence if available
+                if (d.confidence) {
+                    switch(d.confidence) {
+                        case 'high': return baseSize * 1.2;
+                        case 'medium': return baseSize;
+                        case 'low': return baseSize * 0.8;
+                        default: return baseSize;
+                    }
+                }
+
+                return baseSize;
+            }
+
+            function getNodeLabel(d) {
+                // Truncate long names
+                const maxLength = d.type === 'employee' ? 18 : 8;
+                let name = d.name;
+
+                if (name.length > maxLength) {
+                    name = name.substring(0, maxLength) + '...';
+                }
+
+                return name;
+            }
+
+            function getNodeTypeName(type) {
+                switch(type) {
+                    case 'employee': return 'Employee';
+                    case 'vehicle': return 'Vehicle';
+                    case 'cc': return 'Credit Card';
+                    case 'loyalty': return 'Loyalty Card';
+                    default: return type;
+                }
+            }
+        }
+
+        function renderSankeyDiagram(data) {
+            const container = d3.select("#sankey-container");
+            container.html("");
+
+            const width = container.node().getBoundingClientRect().width;
+            const height = 900;  // Increased height to accommodate more nodes
+
+            // Create SVG with zoom support
+            const svg = container.append("svg")
+                .attr("width", width)
+                .attr("height", height);
+
+            // Add zoom functionality
+            sankeyZoom = d3.zoom()
+                .scaleExtent([0.3, 3])
+                .on("zoom", sankeyZoomed);
+
+            svg.call(sankeyZoom);
+
+            const g = svg.append("g");
+
+            function sankeyZoomed(event) {
+                g.attr("transform", event.transform);
+            }
+
+            // Increased margins to ensure all elements are fully visible
+            const margin = {top: 50, right: 180, bottom: 20, left: 180};
+            const innerWidth = width - margin.left - margin.right;
+            const innerHeight = height - margin.top - margin.bottom;
+
+            const vis = g.append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            // Ensure we include all possible links, especially between credit cards and loyalty cards
+            const allLinks = data.customSankeyLinks.slice();
+
+            // Create layout columns based on node type - now only 3 columns
+            const columnWidth = innerWidth / 3;
+            const columns = [
+                { x: 0, width: columnWidth, label: "Vehicles" },
+                { x: columnWidth, width: columnWidth, label: "Credit Cards" },
+                { x: columnWidth * 2, width: columnWidth, label: "Loyalty Cards" }
+            ];
+
+            // Add column headers
+            vis.selectAll(".sankey-type-label")
+                .data(columns)
+                .enter()
+                .append("text")
+                .attr("class", "sankey-type-label")
+                .attr("x", d => d.x + d.width / 2)
+                .attr("y", -25)
+                .text(d => d.label);
+
+            // Distribute 100 nodes among 3 columns
+            // Try to balance to have 33-34 nodes per column but ensure we cover all critical relationships
+            const nodesPerColumn = [33, 33, 34]; // Target distribution
+
+            // Group all nodes by type for selection
+            const nodesByType = [
+                data.customSankeyNodes.filter(n => n.column === 0), // Vehicles
+                data.customSankeyNodes.filter(n => n.column === 1), // Credit Cards
+                data.customSankeyNodes.filter(n => n.column === 2)  // Loyalty Cards
+            ];
+
+            // Sort each group by importance:
+            // 1. High confidence first
+            // 2. Then by number of connections
+            nodesByType.forEach((columnNodes, columnIndex) => {
+                // Count connections for each node
+                const connectionCounts = new Map();
+
+                allLinks.forEach(link => {
+                    const sourceNode = data.customSankeyNodes[link.source];
+                    const targetNode = data.customSankeyNodes[link.target];
+
+                    if (sourceNode && sourceNode.column === columnIndex) {
+                        connectionCounts.set(sourceNode.id, (connectionCounts.get(sourceNode.id) || 0) + link.value);
+                    }
+
+                    if (targetNode && targetNode.column === columnIndex) {
+                        connectionCounts.set(targetNode.id, (connectionCounts.get(targetNode.id) || 0) + link.value);
+                    }
+                });
+
+                // Sort by confidence and connections
+                columnNodes.sort((a, b) => {
+                    // First by confidence
+                    const confidenceOrder = {"high": 0, "medium": 1, "low": 2, "unknown": 3};
+                    const confDiff = confidenceOrder[a.confidence || 'unknown'] - confidenceOrder[b.confidence || 'unknown'];
+
+                    if (confDiff !== 0) return confDiff;
+
+                    // Then by connection count
+                    const aConn = connectionCounts.get(a.id) || 0;
+                    const bConn = connectionCounts.get(b.id) || 0;
+                    return bConn - aConn;
+                });
+            });
+
+            // Select top nodes from each column, ensure we don't miss important connections
+            const selectedNodes = [];
+
+            // Add nodes from each column
+            nodesByType.forEach((columnNodes, colIndex) => {
+                // Add nodes from each column
+                columnNodes.slice(0, nodesPerColumn[colIndex]).forEach(node => {
+                    selectedNodes.push(node);
+                });
+            });
+
+            // Create a map of node IDs to indices in the selectedNodes array
+            const selectedNodeMap = new Map();
+            selectedNodes.forEach((node, index) => {
+                selectedNodeMap.set(node.id, index);
+            });
+
+            // Get all valid links between selected nodes
+            const selectedLinks = [];
+            allLinks.forEach(link => {
+                const sourceNode = data.customSankeyNodes[link.source];
+                const targetNode = data.customSankeyNodes[link.target];
+
+                if (!sourceNode || !targetNode) return;
+
+                const sourceIndex = selectedNodeMap.get(sourceNode.id);
+                const targetIndex = selectedNodeMap.get(targetNode.id);
+
+                if (sourceIndex !== undefined && targetIndex !== undefined) {
+                    selectedLinks.push({
+                        source: sourceIndex,
+                        target: targetIndex,
+                        value: link.value,
+                        type: link.type
+                    });
+                }
+            });
+
+            // Position nodes
+            selectedNodes.forEach(node => {
+                node.x0 = columns[node.column].x;
+                node.x1 = node.x0 + 20; // Node width = 20
+            });
+
+            // Group by column for vertical positioning
+            const nodesByColumn = [[], [], []]; // Now 3 columns
+            selectedNodes.forEach(node => {
+                nodesByColumn[node.column].push(node);
+            });
+
+            // Calculate vertical spacing for each column independently
+            nodesByColumn.forEach((columnNodes, colIndex) => {
+                const nodeHeight = 6;  // Smaller node height
+                const nodeSpacing = 6;  // Smaller spacing between nodes
+                const totalColumnHeight = columnNodes.length * (nodeHeight + nodeSpacing) - nodeSpacing;
+                const startY = (innerHeight - totalColumnHeight) / 2;
+
+                columnNodes.forEach((node, i) => {
+                    node.y0 = startY + i * (nodeHeight + nodeSpacing);
+                    node.y1 = node.y0 + nodeHeight;
+                });
+            });
+
+            // Create and draw links
+            const linkData = [];
+            selectedLinks.forEach(link => {
+                const sourceNode = selectedNodes[link.source];
+                const targetNode = selectedNodes[link.target];
+
+                if (sourceNode && targetNode) {
+                    // Scale link width logarithmically for better visibility
+                    const linkWidth = Math.max(2, Math.log(link.value + 1));
+
+                    // Calculate connection points
+                    const sourceX = sourceNode.x1;
+                    const sourceY = (sourceNode.y0 + sourceNode.y1) / 2;
+                    const targetX = targetNode.x0;
+                    const targetY = (targetNode.y0 + targetNode.y1) / 2;
+
+                    // Define bezier curve control points
+                    const cp1x = sourceX + (targetX - sourceX) / 3;
+                    const cp1y = sourceY;
+                    const cp2x = sourceX + 2 * (targetX - sourceX) / 3;
+                    const cp2y = targetY;
+
+                    linkData.push({
+                        source: sourceNode,
+                        target: targetNode,
+                        width: linkWidth,
+                        value: link.value,
+                        type: link.type,
+                        path: `M${sourceX},${sourceY} C${cp1x},${cp1y} ${cp2x},${cp2y} ${targetX},${targetY}`
+                    });
+                }
+            });
+
+            // Draw links
+            const colorScale = d3.scaleOrdinal()
+                .domain(['vehicle-cc', 'cc-loyalty'])
+                .range(['#a29bfe', '#ff7675']);
+
+            vis.append("g")
+                .selectAll(".sankey-link")
+                .data(linkData)
+                .enter()
+                .append("path")
+                .attr("class", "link sankey-link")
+                .attr("d", d => d.path)
+                .attr("stroke", d => colorScale(d.type))
+                .attr("stroke-width", d => d.width)
+                .style("stroke-opacity", 0.5)
+                .on("mouseover", function(event, d) {
+                    d3.select(this)
+                        .style("stroke-opacity", 0.8);
+
+                    // Show tooltip
+                    tooltip.transition()
+                        .duration(200)
+                        .style("opacity", .9);
+
+                    tooltip.html(`<strong>${d.source.name} → ${d.target.name}</strong><br>Value: ${d.value}`)
+                        .style("left", (event.pageX + 10) + "px")
+                        .style("top", (event.pageY - 28) + "px");
+                })
+                .on("mouseout", function() {
+                    d3.select(this)
+                        .style("stroke-opacity", 0.5);
+
+                    tooltip.transition()
+                        .duration(500)
+                        .style("opacity", 0);
+                });
+
+            // Draw node rectangles
+            const nodeGroups = vis.append("g")
+                .selectAll(".sankey-node")
+                .data(selectedNodes)
+                .enter()
+                .append("g")
+                .attr("class", "sankey-node")
+                .attr("transform", d => `translate(${d.x0},${d.y0})`)
+                .attr("data-id", d => d.id);
+
+            const nodeColorScale = d3.scaleOrdinal()
+                .domain([0, 1, 2])
+                .range(['#a29bfe', '#ff7675', '#55efc4']);
+
+            nodeGroups.append("rect")
+                .attr("width", 20)
+                .attr("height", d => d.y1 - d.y0)
+                .attr("fill", d => nodeColorScale(d.column))
+                .attr("opacity", d => d.confidence === "high" ? 0.9 :
+                                    d.confidence === "medium" ? 0.8 : 0.7)
+                .on("mouseover", function(event, d) {
+                    // Show tooltip
+                    tooltip.transition()
+                        .duration(200)
+                        .style("opacity", .9);
+
+                    tooltip.html(`<strong>${d.name}</strong><br>Type: ${getColumnName(d.column)}` +
+                                (d.confidence && d.confidence !== 'unknown' ?
+                                `<br>Confidence: ${d.confidence.charAt(0).toUpperCase() + d.confidence.slice(1)}` : ''))
+                        .style("left", (event.pageX + 10) + "px")
+                        .style("top", (event.pageY - 28) + "px");
+                });
+
+            // Left side labels - more compact approach
+            nodeGroups.filter(d => d.column === 0) // First column (Vehicles)
+                .append("text")
+                .attr("class", "sankey-label")
+                .attr("x", -8)  // Closer to node
+                .attr("y", d => (d.y1 - d.y0) / 2)
+                .attr("text-anchor", "end")
+                .attr("dominant-baseline", "middle")
+                .text(d => d.name)
+                .style("font-size", "9px")
+                .each(function(d) {
+                    // Add background for better visibility
+                    const text = d3.select(this);
+                    const bbox = text.node().getBBox();
+                    const padding = 2;
+
+                    // Calculate background dimensions to fit the text
+                    const bgWidth = bbox.width + padding * 2;
+                    const bgHeight = bbox.height + padding;
+
+                    // Add background with controlled width
+                    d3.select(this.parentNode)
+                        .insert("rect", "text")
+                        .attr("class", "node-label-bg")
+                        .attr("x", -8 - bgWidth)
+                        .attr("y", (d.y1 - d.y0) / 2 - bgHeight/2)
+                        .attr("width", bgWidth)
+                        .attr("height", bgHeight)
+                        .attr("fill-opacity", 0.9);
+                });
+
+            // Right side labels - more compact approach
+            nodeGroups.filter(d => d.column > 0) // Second and third columns (CC and Loyalty)
+                .append("text")
+                .attr("class", "sankey-label")
+                .attr("x", 25)  // Closer to node
+                .attr("y", d => (d.y1 - d.y0) / 2)
+                .attr("text-anchor", "start")
+                .attr("dominant-baseline", "middle")
+                .text(d => d.name)
+                .style("font-size", "9px")
+                .each(function(d) {
+                    // Add background for better visibility
+                    const text = d3.select(this);
+                    const bbox = text.node().getBBox();
+                    const padding = 2;
+
+                    // Calculate background dimensions to fit the text
+                    const bgWidth = bbox.width + padding * 2;
+                    const bgHeight = bbox.height + padding;
+
+                    // Add background with controlled width
+                    d3.select(this.parentNode)
+                        .insert("rect", "text")
+                        .attr("class", "node-label-bg")
+                        .attr("x", 25 - padding)
+                        .attr("y", (d.y1 - d.y0) / 2 - bgHeight/2)
+                        .attr("width", bgWidth)
+                        .attr("height", bgHeight)
+                        .attr("fill-opacity", 0.9);
+                });
+
+            // Set up zoom control buttons
+            d3.select("#sankey-zoom-in").on("click", () => {
+                svg.transition().duration(300).call(sankeyZoom.scaleBy, 1.3);
+            });
+
+            d3.select("#sankey-zoom-out").on("click", () => {
+                svg.transition().duration(300).call(sankeyZoom.scaleBy, 0.7);
+            });
+
+            d3.select("#sankey-zoom-reset").on("click", () => {
+                svg.transition().duration(300).call(
+                    sankeyZoom.transform,
+                    d3.zoomIdentity.translate(0, 0).scale(1)
+                );
+            });
+
+            // Store references for search functionality
+            window.sankeyElements = {
+                node: nodeGroups,
+                svg: svg,
+                zoom: sankeyZoom
+            };
+
+            // If there's a highlighted node from search, highlight it
+            if (highlightedNode) {
+                highlightNodeInSankey(highlightedNode);
+            }
+
+            function highlightNodeInSankey(nodeId) {
+                if (!window.sankeyElements) return;
+
+                const { node, svg, zoom } = window.sankeyElements;
+
+                // Find the node with matching id
+                const selectedNode = node.filter(d => d.id === nodeId);
+
+                if (selectedNode.size() === 0) return;
+
+                // Get the data for the node
+                const nodeData = selectedNode.datum();
+
+                // Zoom to the node
+                let transform;
+                if (nodeData.column === 0) { // First column now (Vehicles)
+                    // For left side nodes, align to the right of visible area
+                    transform = d3.zoomIdentity
+                        .translate(width/2, height/2)
+                        .scale(1.5)
+                        .translate(-nodeData.x0 - 100, -nodeData.y0);
+                } else {
+                    // For right side nodes, align to the left of visible area
+                    transform = d3.zoomIdentity
+                        .translate(width/2, height/2)
+                        .scale(1.5)
+                        .translate(-nodeData.x0 + 100, -nodeData.y0);
+                }
+
+                svg.transition().duration(750).call(zoom.transform, transform);
+
+                // Highlight the node
+                selectedNode.select("rect")
+                    .style("stroke", "#e74c3c")
+                    .style("stroke-width", "3px")
+                    .style("stroke-dasharray", "5,3");
+
+                // Make other nodes more transparent
+                node.style("opacity", d => d.id === nodeId ? 1 : 0.3);
+            }
+
+            function getColumnName(column) {
+                switch(column) {
+                    case 0: return 'Vehicle';
+                    case 1: return 'Credit Card';
+                    case 2: return 'Loyalty Card';
+                    default: return 'Unknown';
+                }
+            }
+        }
+
+        function renderTable(data) {
+            const tableBody = d3.select("#ownership-table tbody");
+            tableBody.html("");
+
+            if (data.ownership.length === 0) {
+                tableBody.html('<tr><td colspan="5" class="error-message">No ownership data available</td></tr>');
+                return;
+            }
+
+            // Sort by confidence: high first, then medium, then low
+            const sortedOwnership = [...data.ownership].sort((a, b) => {
+                const confidenceOrder = {"high": 0, "medium": 1, "low": 2};
+                return confidenceOrder[a.confidence] - confidenceOrder[b.confidence];
+            });
+
+            sortedOwnership.forEach(row => {
+                const tr = tableBody.append("tr")
+                    .attr("data-confidence", row.confidence)
+                    .attr("data-employee", row.employee)
+                    .attr("data-vehicle", row.vehicleId)
+                    .attr("data-cc", row.creditCard)
+                    .attr("data-loyalty", row.loyaltyCard || "");
+
+                tr.append("td")
+                    .text(row.employee)
+                    .on("click", () => highlightEntity(row.employee));
+
+                tr.append("td")
+                    .text(row.vehicleId)
+                    .on("click", () => highlightEntity(`Vehicle-${row.vehicleId}`));
+
+                tr.append("td")
+                    .text(row.creditCard)
+                    .on("click", () => highlightEntity(`CC-${row.creditCard}`));
+
+                tr.append("td")
+                    .text(row.loyaltyCard || "N/A")
+                    .on("click", () => {
+                        if (row.loyaltyCard) highlightEntity(row.loyaltyCard);
+                    });
+
+                tr.append("td")
+                    .append("span")
+                    .attr("class", `confidence ${row.confidence}`)
+                    .text(row.confidence.charAt(0).toUpperCase() + row.confidence.slice(1));
+            });
+        }
+
+        function setupSearch(data) {
+            const searchInput = document.querySelector('.search-input');
+            const searchResults = document.querySelector('.search-results');
+
+            searchInput.addEventListener('input', function(e) {
+                const query = e.target.value.toLowerCase();
+
+                if (query.length < 2) {
+                    searchResults.style.display = 'none';
+                    return;
+                }
+
+                // Search through nodes
+                const matchingNodes = data.nodes.filter(node =>
+                    node.name.toLowerCase().includes(query)
+                );
+
+                // Display results
+                if (matchingNodes.length > 0) {
+                    searchResults.innerHTML = '';
+                    searchResults.style.display = 'block';
+
+                    // Show a maximum of 10 results
+                    matchingNodes.slice(0, 10).forEach(node => {
+                        const resultItem = document.createElement('div');
+                        resultItem.className = 'search-result-item';
+
+                        let typeName;
+                        switch(node.type) {
+                            case 'employee': typeName = 'Employee'; break;
+                            case 'vehicle': typeName = 'Vehicle'; break;
+                            case 'cc': typeName = 'Credit Card'; break;
+                            case 'loyalty': typeName = 'Loyalty Card'; break;
+                            default: typeName = node.type;
+                        }
+
+                        resultItem.innerHTML = `
+                            ${node.name}
+                            <span class="result-type">(${typeName})</span>
+                            ${node.confidence ? `<span class="result-confidence ${node.confidence}">${node.confidence.charAt(0).toUpperCase() + node.confidence.slice(1)}</span>` : ''}
+                        `;
+
+                        resultItem.addEventListener('click', function() {
+                            // Hide search results
+                            searchResults.style.display = 'none';
+                            searchInput.value = node.name;
+
+                            // Highlight the selected entity
+                            highlightEntity(node.id);
+                        });
+
+                        searchResults.appendChild(resultItem);
+                    });
+
+                    if (matchingNodes.length > 10) {
+                        const moreResults = document.createElement('div');
+                        moreResults.className = 'search-result-item';
+                        moreResults.textContent = `...and ${matchingNodes.length - 10} more results`;
+                        searchResults.appendChild(moreResults);
+                    }
+                } else {
+                    searchResults.innerHTML = '<div class="search-result-item">No results found</div>';
+                    searchResults.style.display = 'block';
+                }
+            });
+
+            // Hide search results when clicking outside
+            document.addEventListener('click', function(e) {
+                if (!e.target.closest('.search-container')) {
+                    searchResults.style.display = 'none';
+                }
+            });
+        }
+
+        function highlightEntity(nodeId) {
+            // Set global highlighted node
+            highlightedNode = nodeId;
+
+            // Check which view is active
+            const isSankeyActive = document.querySelector('.view-tab[data-view="sankey"]').classList.contains('active');
+
+            if (isSankeyActive) {
+                // If Sankey is active, highlight in Sankey view
+                highlightNodeInSankey(nodeId);
+            } else {
+                // Else highlight in network view
+                highlightNodeInNetwork(nodeId);
+            }
+        }
+
+        function highlightNodeInNetwork(nodeId) {
+            if (!window.networkElements) return;
+
+            const {node, link, svg, zoom} = window.networkElements;
+
+            // Find the node
+            const selectedNode = node.filter(d => d.id === nodeId);
+
+            if (selectedNode.size() === 0) {
+                alert("Node not found in current view. Try changing filters.");
+                return;
+            }
+
+            // Get the data for the node
+            const nodeData = selectedNode.datum();
+
+            // Zoom to the node
+            const transform = d3.zoomIdentity
+                .translate(window.innerWidth / 2, window.innerHeight / 2)
+                .scale(2)
+                .translate(-nodeData.x, -nodeData.y);
+
+            svg.transition().duration(750).call(zoom.transform, transform);
+
+            // Clear any existing highlights
+            clearSearchHighlight();
+
+            // Add the search highlight class
+            selectedNode.classed("search-highlight", true);
+
+            // Highlight connected links
+            link.style("opacity", l =>
+                l.source.id === nodeId || l.target.id === nodeId ? 1 : 0.1
+            );
+
+            // Highlight connected nodes
+            node.style("opacity", n => {
+                if (n.id === nodeId) return 1;
+
+                // Check if connected
+                const isConnected = link.data().some(l =>
+                    (l.source.id === nodeId && l.target.id === n.id) ||
+                    (l.source.id === n.id && l.target.id === nodeId)
+                );
+
+                return isConnected ? 1 : 0.2;
+            });
+        }
+
+        function highlightNodeInSankey(nodeId) {
+            if (!window.sankeyElements) return;
+
+            const { node, svg, zoom } = window.sankeyElements;
+
+            // Find the node with matching id
+            const selectedNode = node.filter(d => d.id === nodeId);
+
+            if (selectedNode.size() === 0) {
+                alert("Node not found in Sankey view. Try changing to Network view.");
+                return;
+            }
+
+            // Get the data for the node
+            const nodeData = selectedNode.datum();
+
+            // Zoom to the node
+            let transform;
+            if (nodeData.column === 0) { // First column now (Vehicles)
+                // For left side nodes, align to the right of visible area
+                transform = d3.zoomIdentity
+                    .translate(window.innerWidth/2, window.innerHeight/2)
+                    .scale(1.5)
+                    .translate(-nodeData.x0 - 100, -nodeData.y0);
+            } else {
+                // For right side nodes, align to the left of visible area
+                transform = d3.zoomIdentity
+                    .translate(window.innerWidth/2, window.innerHeight/2)
+                    .scale(1.5)
+                    .translate(-nodeData.x0 + 100, -nodeData.y0);
+            }
+
+            svg.transition().duration(750).call(zoom.transform, transform);
+
+            // Highlight the node
+            selectedNode.select("rect")
+                .style("stroke", "#e74c3c")
+                .style("stroke-width", "3px")
+                .style("stroke-dasharray", "5,3");
+
+            // Make other nodes more transparent
+            node.style("opacity", d => d.id === nodeId ? 1 : 0.3);
+        }
+
+        function clearSearchHighlight() {
+            if (window.networkElements) {
+                const {node, link} = window.networkElements;
+                node.classed("search-highlight", false);
+                link.style("opacity", 1);
+                node.style("opacity", 1);
+            }
+
+            if (window.sankeyElements) {
+                const {node} = window.sankeyElements;
+                node.select("rect").style("stroke", null).style("stroke-width", null).style("stroke-dasharray", null);
+                node.style("opacity", 1);
+            }
+        }
+
+        function setupEventListeners(data) {
+            // View tabs
+            document.querySelectorAll('.view-tab').forEach(tab => {
+                tab.addEventListener('click', function() {
+                    // Remove active class from all tabs and content
+                    document.querySelectorAll('.view-tab').forEach(t => t.classList.remove('active'));
+                    document.querySelectorAll('.view-content').forEach(c => c.classList.remove('active'));
+
+                    // Add active class to clicked tab and corresponding content
+                    this.classList.add('active');
+                    document.getElementById(`${this.dataset.view}-view`).classList.add('active');
+
+                    // Re-render the active view
+                    if (this.dataset.view === 'network') {
+                        renderNetworkGraph(data);
+                    } else if (this.dataset.view === 'sankey') {
+                        renderSankeyDiagram(data);
+                    }
+
+                    // If there's a highlighted node, highlight it in the new view
+                    if (highlightedNode) {
+                        setTimeout(() => {
+                            if (this.dataset.view === 'network') {
+                                highlightNodeInNetwork(highlightedNode);
+                            } else if (this.dataset.view === 'sankey') {
+                                highlightNodeInSankey(highlightedNode);
+                            }
+                        }, 300);
+                    }
+                });
+            });
+
+            // Network view filter change events
+            d3.select("#relationshipFilter").on("change", function() {
+                if (document.querySelector('.view-tab[data-view="network"]').classList.contains('active')) {
+                    renderNetworkGraph(data);
+                }
+            });
+
+            d3.select("#entityFilter").on("change", function() {
+                if (document.querySelector('.view-tab[data-view="network"]').classList.contains('active')) {
+                    renderNetworkGraph(data);
+                }
+            });
+
+            d3.select("#layoutFilter").on("change", function() {
+                if (document.querySelector('.view-tab[data-view="network"]').classList.contains('active')) {
+                    renderNetworkGraph(data);
+                }
+            });
+
+            // Network focus buttons
+            document.querySelectorAll(".focus-button").forEach(button => {
+                button.addEventListener("click", function() {
+                    // Remove active class from all buttons
+                    document.querySelectorAll(".focus-button").forEach(btn => {
+                        btn.classList.remove("active");
+                    });
+
+                    // Add active class to clicked button
+                    this.classList.add("active");
+
+                    // Re-render with the new filter
+                    if (document.querySelector('.view-tab[data-view="network"]').classList.contains('active')) {
+                        renderNetworkGraph(data);
+                    }
+
+                    // Filter the table
+                    const confidenceFilter = this.dataset.focus;
+                    const rows = document.querySelectorAll("#ownership-table tbody tr");
+
+                    rows.forEach(row => {
+                        if (confidenceFilter === "all" || row.dataset.confidence === confidenceFilter) {
+                            row.style.display = "";
+                        } else {
+                            row.style.display = "none";
+                        }
+                    });
+                });
+            });
+
+            // Set initial active button
+            document.querySelector(".focus-button[data-focus='all']").classList.add("active");
+
+            // Handle window resize
+            window.addEventListener("resize", function() {
+                if (document.querySelector('.view-tab[data-view="network"]').classList.contains('active')) {
+                    renderNetworkGraph(data);
+                } else if (document.querySelector('.view-tab[data-view="sankey"]').classList.contains('active')) {
+                    renderSankeyDiagram(data);
+                }
+            });
+
+            // Table row hover - highlight corresponding nodes
+            d3.selectAll("#ownership-table tbody tr")
+                .on("mouseover", function() {
+                    // Don't highlight if we're during search highlight
+                    if (highlightedNode) return;
+
+                    const employee = d3.select(this).attr("data-employee");
+                    const vehicleId = d3.select(this).attr("data-vehicle");
+                    const cc = d3.select(this).attr("data-cc");
+                    const loyalty = d3.select(this).attr("data-loyalty");
+
+                    // Highlight nodes in network view if it's active
+                    if (document.querySelector('.view-tab[data-view="network"]').classList.contains('active') &&
+                        window.networkElements) {
+
+                        const {node} = window.networkElements;
+
+                        // Highlight relevant nodes
+                        node.style("opacity", d => {
+                            return (d.id === employee ||
+                                   d.id === `Vehicle-${vehicleId}` ||
+                                   d.id === `CC-${cc}` ||
+                                   (loyalty && d.id === loyalty)) ? 1 : 0.3;
+                        });
+                    }
+
+                    // Highlight nodes in Sankey view if it's active
+                    if (document.querySelector('.view-tab[data-view="sankey"]').classList.contains('active') &&
+                        window.sankeyElements) {
+
+                        const {node} = window.sankeyElements;
+
+                        // Highlight relevant nodes by ID - exclude employee nodes which aren't in Sankey
+                        node.style("opacity", d => {
+                            return (d.id === `Vehicle-${vehicleId}` ||
+                                   d.id === `CC-${cc}` ||
+                                   (loyalty && d.id === loyalty)) ? 1 : 0.3;
+                        });
+                    }
+                })
+                .on("mouseout", function() {
+                    // Don't reset if we're during search highlight
+                    if (highlightedNode) return;
+
+                    // Reset opacities in network view
+                    if (document.querySelector('.view-tab[data-view="network"]').classList.contains('active') &&
+                        window.networkElements) {
+                        window.networkElements.node.style("opacity", 1);
+                    }
+
+                    // Reset opacities in Sankey view
+                    if (document.querySelector('.view-tab[data-view="sankey"]').classList.contains('active') &&
+                        window.sankeyElements) {
+                        window.sankeyElements.node.style("opacity", 1);
+                    }
+                });
+        }
+    </script>
+</body>
+</html>
