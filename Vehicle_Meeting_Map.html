@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Vehicle Meeting Map</title>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f5f5f5;
+      margin: 0;
+      padding: 0;
+    }
+    header {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+      text-align: center;
+      padding: 20px;
+    }
+    .container {
+      display: flex;
+      flex-direction: row;
+      padding: 20px;
+    }
+    .map {
+      width: 65%;
+      position: relative;
+      border: 2px solid #ccc;
+      border-radius: 8px;
+      background-color: white;
+      box-shadow: 0 0 5px rgba(0,0,0,0.1);
+      margin-right: 20px;
+    }
+    .sidebar {
+      flex: 1;
+      min-width: 280px;
+    }
+    svg {
+      width: 100%;
+      height: 75vh;
+      cursor: crosshair;
+    }
+    .select-box {
+      height: 180px;
+      overflow-y: auto;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      padding: 5px;
+      margin-bottom: 15px;
+      background: white;
+    }
+    .select-item {
+      display: flex;
+      align-items: center;
+      padding: 4px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .select-item.selected {
+      background-color: #e0e7ff;
+    }
+    .select-color {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      margin-right: 8px;
+    }
+    .selection-rect {
+      fill: rgba(100, 100, 255, 0.2);
+      stroke: #6666ff;
+      stroke-width: 2;
+    }
+    .selection-info {
+      background: white;
+      border: 1px solid #aaa;
+      padding: 10px;
+      border-radius: 6px;
+      font-size: 13px;
+      max-width: 100%;
+      box-shadow: 2px 2px 6px rgba(0,0,0,0.2);
+      overflow-y: auto;
+      max-height: 400px;
+      z-index: 10;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <header><h1>Vehicle Meeting Points</h1></header>
+  <div class="container">
+    <div class="map">
+      <svg id="map"></svg>
+    </div>
+    <div class="sidebar">
+      <label>Date Selection:</label>
+      <div id="dateSelect" class="select-box"></div>
+      <label>Vehicle Selection:</label>
+      <div id="vehicleSelect" class="select-box"></div>
+      <label><input type="checkbox" id="onlyCheckbox"> Only show if both vehicles selected</label>
+      <button id="resetBtn">Reset Filters & Zoom</button>
+      <div id="selectionInfo" class="selection-info"></div>
+    </div>
+  </div>
+
+  <script>
+    const vehicleAssignments = {
+      1: "Nils Calixto", 2: "Lars Azada", 3: "Felix Balas", 4: "Ingrid Barranco", 5: "Isak Baza",
+      6: "Linnea Bergen", 7: "Elsa Orilla", 8: "Lucas Alcazar", 9: "Gustav Cazar", 10: "Ada Campo-Corrente",
+      11: "Axel Calzas", 12: "Hideki Cocinaro", 13: "Inga Ferro", 14: "Lidelse Dedos", 15: "Loreto Bodrogi",
+      16: "Isia Vann", 17: "Sven Flecha", 18: "Birgitta Frente", 19: "Vira Frente", 20: "Stenig Fusil",
+      21: "Hennie Osvaldo", 22: "Adra Nubarron", 23: "Varja Lagos", 24: "Minke Mies", 25: "Kanon Herrero",
+      26: "Marin Onda", 27: "Kare Orilla", 28: "Isande Borrasca", 29: "Bertrand Ovan", 30: "Felix Resumir",
+      31: "Sten Sanjorge Jr.", 32: "Orhan Strum", 33: "Brand Tempestad", 34: "Edvard Vann", 35: "Willem Vasco-Pais"
+    };
+
+    const svg = d3.select("#map");
+    const width = document.querySelector('.map').clientWidth;
+    const height = document.querySelector('.map').clientHeight;
+    const projection = d3.geoEquirectangular()
+      .center([(24.8240 + 24.9100)/2, (36.0450 + 36.0950)/2])
+      .scale(700000)
+      .translate([width / 2, height / 2]);
+    const path = d3.geoPath().projection(projection);
+    let selectedIds = new Set(), selectedDates = new Set();
+    const g = svg.append("g");
+    const zoom = d3.zoom().scaleExtent([1, 10]).on("zoom", (event) => g.attr("transform", event.transform));
+    svg.call(zoom);
+
+    let allMeetings = [];
+
+    Promise.all([
+      d3.json("data/abila.geojson"),
+      d3.json("data/vehicle_meetings.json")
+    ]).then(([geojson, meetings]) => {
+      allMeetings = meetings;
+
+      g.append("image")
+        .attr("href", "data/MC2-tourist.jpg")
+        .attr("x", projection([24.8240, 36.0950])[0])
+        .attr("y", projection([24.8240, 36.0950])[1])
+        .attr("width", projection([24.9100, 36.0950])[0] - projection([24.8240, 36.0950])[0])
+        .attr("height", projection([24.8240, 36.0450])[1] - projection([24.8240, 36.0950])[1])
+        .attr("opacity", 0.6);
+
+      g.selectAll("path").data(geojson.features).enter().append("path")
+        .attr("d", path)
+        .attr("fill", "none")
+        .attr("stroke", "#333")
+        .attr("stroke-width", 0.5);
+
+      const dateSelect = document.getElementById("dateSelect");
+      const vehicleSelect = document.getElementById("vehicleSelect");
+      const resetBtn = document.getElementById("resetBtn");
+      const onlyCheckbox = document.getElementById("onlyCheckbox");
+      const selectionInfo = document.getElementById("selectionInfo");
+
+      const uniqueDates = Array.from(new Set(meetings.map(d => d.v1_start.slice(0, 10)))).sort();
+      const uniqueIds = Array.from(new Set(meetings.flatMap(d => [d.v1, d.v2]))).sort((a, b) => a - b);
+      const colorScale = d3.scaleOrdinal(d3.schemeCategory10).domain(uniqueIds);
+
+      uniqueDates.forEach(date => {
+        const item = document.createElement("div");
+        item.className = "select-item";
+        item.innerHTML = `<div class='select-color' style='background:#666'></div><span>${date}</span>`;
+        item.addEventListener("click", () => {
+          item.classList.toggle("selected");
+          if (selectedDates.has(date)) selectedDates.delete(date);
+          else selectedDates.add(date);
+          filterAndDraw();
+        });
+        dateSelect.appendChild(item);
+      });
+
+      uniqueIds.forEach(id => {
+        const item = document.createElement("div");
+        item.className = "select-item";
+        const name = vehicleAssignments[id] || "Unknown";
+        item.innerHTML = `<div class='select-color' style='background:${colorScale(id)}'></div><span>Vehicle #${id} - ${name}</span>`;
+        item.addEventListener("click", () => {
+          item.classList.toggle("selected");
+          if (selectedIds.has(id)) selectedIds.delete(id);
+          else selectedIds.add(id);
+          filterAndDraw();
+        });
+        vehicleSelect.appendChild(item);
+      });
+
+      resetBtn.addEventListener("click", () => {
+        selectedIds.clear();
+        selectedDates.clear();
+        document.querySelectorAll(".select-item").forEach(el => el.classList.remove("selected"));
+        onlyCheckbox.checked = false;
+        svg.transition().duration(750).call(zoom.transform, d3.zoomIdentity);
+        filterAndDraw();
+      });
+
+      function filterCurrentData() {
+        let filtered = allMeetings;
+        if (selectedDates.size > 0) {
+          filtered = filtered.filter(d => selectedDates.has(d.v1_start.slice(0, 10)));
+        }
+        if (selectedIds.size > 0) {
+          const only = onlyCheckbox.checked;
+          filtered = filtered.filter(d => {
+            return only ? (selectedIds.has(d.v1) && selectedIds.has(d.v2)) : (selectedIds.has(d.v1) || selectedIds.has(d.v2));
+          });
+        }
+        return filtered;
+      }
+
+      function filterAndDraw() {
+        const filtered = filterCurrentData();
+        g.selectAll("circle").remove();
+        g.selectAll("circle")
+          .data(filtered)
+          .enter()
+          .append("circle")
+          .attr("cx", d => projection([+d.lng, +d.lat])[0])
+          .attr("cy", d => projection([+d.lng, +d.lat])[1])
+          .attr("r", 4)
+          .attr("fill", d => colorScale(d.v1))
+          .attr("stroke", "#fff")
+          .attr("stroke-width", 1);
+      }
+
+      filterAndDraw();
+
+      let rect, startPoint;
+      svg.on("mousedown", function(event) {
+        startPoint = d3.pointer(event);
+        if (rect) rect.remove();
+        rect = g.append("rect")
+          .attr("class", "selection-rect")
+          .attr("x", startPoint[0])
+          .attr("y", startPoint[1])
+          .attr("width", 0)
+          .attr("height", 0);
+      });
+
+      svg.on("mousemove", function(event) {
+        if (!startPoint || !rect) return;
+        const [x, y] = d3.pointer(event);
+        const x0 = Math.min(startPoint[0], x);
+        const y0 = Math.min(startPoint[1], y);
+        const x1 = Math.max(startPoint[0], x);
+        const y1 = Math.max(startPoint[1], y);
+        rect.attr("x", x0).attr("y", y0).attr("width", x1 - x0).attr("height", y1 - y0);
+      });
+
+      svg.on("mouseup", function(event) {
+        if (!startPoint || !rect) return;
+        const x0 = parseFloat(rect.attr("x")), y0 = parseFloat(rect.attr("y"));
+        const x1 = x0 + parseFloat(rect.attr("width"));
+        const y1 = y0 + parseFloat(rect.attr("height"));
+
+        const filtered = filterCurrentData();
+        const selected = filtered.filter(d => {
+          const [px, py] = projection([+d.lng, +d.lat]);
+          return px >= x0 && px <= x1 && py >= y0 && py <= y1;
+        });
+
+        const content = selected.map(d => {
+          const name1 = vehicleAssignments[d.v1] || "Unknown";
+          const name2 = vehicleAssignments[d.v2] || "Unknown";
+          return `<b>Vehicle ${d.v1}</b> - ${name1}<br>${d.v1_start} ~ ${d.v1_end}<br>
+                  <b>Vehicle ${d.v2}</b> - ${name2}<br>${d.v2_start} ~ ${d.v2_end}<hr>`;
+        }).join("") || "<i>No points found.</i>";
+
+        selectionInfo.innerHTML = content;
+        selectionInfo.scrollTop = 0;
+        selectionInfo.style.display = "block";
+
+        startPoint = null;
+      });
+    });
+  </script>
+</body>
+</html>

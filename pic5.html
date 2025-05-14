@@ -1,0 +1,2624 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>VAST Challenge 2021 - Mini Challenge 2 Analysis</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        :root {
+            --primary-color: #4a6fa5;
+            --primary-light: #6388bf;
+            --primary-dark: #2d5282;
+            --secondary-color: #f5f5f5;
+            --text-color: #333;
+            --border-color: #e0e0e0;
+            --accent-color: #ff7c43;
+            --success-color: #4CAF50;
+            --chart-color-1: #4e79a7;
+            --chart-color-2: #f28e2c;
+            --chart-color-3: #e15759;
+            --chart-color-4: #76b7b2;
+            --chart-color-5: #59a14f;
+            --shadow: 0 2px 10px rgba(0,0,0,0.1);
+            --radius: 8px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: var(--text-color);
+            background-color: #f9f9f9;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 0 20px;
+        }
+
+        .dashboard {
+            background-color: white;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+
+        header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        header h1 {
+            font-size: 24px;
+            font-weight: 500;
+            margin: 0;
+        }
+
+        .tab {
+            display: flex;
+            background-color: var(--primary-dark);
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .tab button {
+            background-color: transparent;
+            border: none;
+            color: rgba(255, 255, 255, 0.8);
+            cursor: pointer;
+            padding: 12px 20px;
+            font-size: 14px;
+            white-space: nowrap;
+            transition: 0.2s;
+        }
+
+        .tab button:hover {
+            color: white;
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .tab button.active {
+            color: white;
+            background-color: var(--primary-light);
+            font-weight: 500;
+        }
+
+        .tabcontent {
+            display: none;
+            padding: 20px;
+            animation: fadeIn 0.5s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .controls {
+            background-color: var(--secondary-color);
+            padding: 15px;
+            border-radius: var(--radius);
+            margin-bottom: 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        label {
+            font-size: 13px;
+            font-weight: 500;
+            color: #666;
+        }
+
+        select, input, button {
+            padding: 8px 12px;
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+            font-size: 14px;
+            background-color: white;
+        }
+
+        button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background-color 0.2s;
+        }
+
+        button:hover {
+            background-color: var(--primary-dark);
+        }
+
+        .chart-container {
+            position: relative;
+            height: 400px;
+            margin-bottom: 30px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius);
+            overflow: hidden;
+            background-color: white;
+        }
+
+        .tooltip {
+            position: absolute;
+            padding: 10px;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            border-radius: 4px;
+            pointer-events: none;
+            font-size: 12px;
+            z-index: 1000;
+            max-width: 280px;
+            display: none;
+            box-shadow: 0 0 10px rgba(0,0,0,0.2);
+        }
+
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            padding: 10px;
+            font-size: 12px;
+            background-color: var(--secondary-color);
+            border-radius: var(--radius);
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+        }
+
+        .location-filter {
+            background-color: white;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius);
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+
+        .location-filter h3 {
+            padding: 12px 15px;
+            background-color: var(--secondary-color);
+            font-size: 14px;
+            font-weight: 500;
+            border-bottom: 1px solid var(--border-color);
+            margin: 0;
+        }
+
+        .checkbox-container {
+            max-height: 200px;
+            overflow-y: auto;
+            padding: 10px 15px;
+        }
+
+        .checkbox-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 8px;
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+        }
+
+        .checkbox-item input {
+            margin: 0;
+        }
+
+        .comparison-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .comparison-chart {
+            background-color: white;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius);
+            padding: 15px;
+        }
+
+        .comparison-chart h3 {
+            font-size: 14px;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        #map {
+            height: 500px;
+            border-radius: var(--radius);
+            margin-bottom: 15px;
+        }
+
+        .sub-controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            color: #666;
+            font-style: italic;
+        }
+
+        .grid line {
+            stroke: #e0e0e0;
+            stroke-opacity: 0.7;
+        }
+
+        .loader {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid var(--primary-color);
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 768px) {
+            .comparison-container {
+                grid-template-columns: 1fr;
+            }
+
+            .controls {
+                grid-template-columns: 1fr;
+            }
+
+            header h1 {
+                font-size: 20px;
+            }
+
+            .chart-container {
+                height: 300px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="dashboard">
+            <header>
+                <h1>VAST Challenge 2021 - Mini Challenge 2 Analysis</h1>
+            </header>
+
+            <div class="tab">
+                <button class="tablinks active" onclick="openTab(event, 'CreditCardTab')">Credit Card</button>
+                <button class="tablinks" onclick="openTab(event, 'LoyaltyTab')">Loyalty Card</button>
+                <button class="tablinks" onclick="openTab(event, 'ComparisonTab')">Comparison</button>
+                <button class="tablinks" onclick="openTab(event, 'VehicleTab')">Vehicle Activity</button>
+                <button class="tablinks" onclick="openTab(event, 'MapTab')">Map Analysis</button>
+            </div>
+
+            <div id="CreditCardTab" class="tabcontent" style="display: block;">
+                <div class="controls">
+                    <div class="control-group">
+                        <label for="dateRange">Date Range</label>
+                        <select id="dateRange">
+                            <option value="all">All Dates</option>
+                            <option value="2014-01-06">2014-01-06</option>
+                            <option value="2014-01-07">2014-01-07</option>
+                            <option value="2014-01-08">2014-01-08</option>
+                            <option value="2014-01-09">2014-01-09</option>
+                            <option value="2014-01-10">2014-01-10</option>
+                            <option value="2014-01-11">2014-01-11</option>
+                            <option value="2014-01-12">2014-01-12</option>
+                            <option value="2014-01-13">2014-01-13</option>
+                            <option value="2014-01-14">2014-01-14</option>
+                            <option value="2014-01-15">2014-01-15</option>
+                            <option value="2014-01-16">2014-01-16</option>
+                            <option value="2014-01-17">2014-01-17</option>
+                            <option value="2014-01-18">2014-01-18</option>
+                            <option value="2014-01-19">2014-01-19</option>
+                        </select>
+                    </div>
+
+                    <div class="control-group">
+                        <label for="timeInterval">Time Interval</label>
+                        <select id="timeInterval">
+                            <option value="1">1 Hour</option>
+                            <option value="2">2 Hours</option>
+                            <option value="3">3 Hours</option>
+                            <option value="4">4 Hours</option>
+                            <option value="6">6 Hours</option>
+                        </select>
+                    </div>
+
+                    <div class="control-group">
+                        <label for="sortOrder">Sort By</label>
+                        <select id="sortOrder">
+                            <option value="name">Location Name</option>
+                            <option value="frequency" selected>Transaction Frequency</option>
+                            <option value="amount">Transaction Amount</option>
+                        </select>
+                    </div>
+
+                    <div class="control-group">
+                        <label for="topLocations">Show Top Locations</label>
+                        <input type="number" id="topLocations" value="10" min="1" max="50">
+                    </div>
+
+                    <div class="control-group">
+                        <button id="updateChart">Update Chart</button>
+                    </div>
+                </div>
+
+                <div class="location-filter">
+                    <h3>Select Locations</h3>
+                    <div class="checkbox-container">
+                        <div class="checkbox-group" id="locationCheckboxes">
+                            <!-- JavaScript will populate this -->
+                        </div>
+                    </div>
+                </div>
+
+                <div class="chart-container">
+                    <div id="creditCardChart"></div>
+                </div>
+                <div class="tooltip" id="ccTooltip"></div>
+
+                <div class="legend" id="creditCardLegend"></div>
+            </div>
+
+            <div id="LoyaltyTab" class="tabcontent">
+                <div class="controls">
+                    <div class="control-group">
+                        <label for="loyaltyDateRange">Date Range</label>
+                        <select id="loyaltyDateRange">
+                            <option value="all">All Dates</option>
+                            <option value="2014-01-06">2014-01-06</option>
+                            <option value="2014-01-07">2014-01-07</option>
+                            <option value="2014-01-08">2014-01-08</option>
+                            <option value="2014-01-09">2014-01-09</option>
+                            <option value="2014-01-10">2014-01-10</option>
+                            <option value="2014-01-11">2014-01-11</option>
+                            <option value="2014-01-12">2014-01-12</option>
+                            <option value="2014-01-13">2014-01-13</option>
+                            <option value="2014-01-14">2014-01-14</option>
+                            <option value="2014-01-15">2014-01-15</option>
+                            <option value="2014-01-16">2014-01-16</option>
+                            <option value="2014-01-17">2014-01-17</option>
+                            <option value="2014-01-18">2014-01-18</option>
+                            <option value="2014-01-19">2014-01-19</option>
+                        </select>
+                    </div>
+
+                    <div class="control-group">
+                        <label for="loyaltyTimeInterval">Time Interval</label>
+                        <select id="loyaltyTimeInterval">
+                            <option value="1">1 Hour</option>
+                            <option value="2">2 Hours</option>
+                            <option value="3">3 Hours</option>
+                            <option value="4">4 Hours</option>
+                            <option value="6">6 Hours</option>
+                        </select>
+                    </div>
+
+                    <div class="control-group">
+                        <label for="loyaltySortOrder">Sort By</label>
+                        <select id="loyaltySortOrder">
+                            <option value="name">Location Name</option>
+                            <option value="frequency" selected>Transaction Frequency</option>
+                            <option value="amount">Transaction Amount</option>
+                        </select>
+                    </div>
+
+                    <div class="control-group">
+                        <label for="loyaltyTopLocations">Show Top Locations</label>
+                        <input type="number" id="loyaltyTopLocations" value="10" min="1" max="50">
+                    </div>
+
+                    <div class="control-group">
+                        <button id="updateLoyaltyChart">Update Chart</button>
+                    </div>
+                </div>
+
+                <div class="location-filter">
+                    <h3>Select Locations</h3>
+                    <div class="checkbox-container">
+                        <div class="checkbox-group" id="loyaltyLocationCheckboxes">
+                            <!-- JavaScript will populate this -->
+                        </div>
+                    </div>
+                </div>
+
+                <div class="chart-container">
+                    <div id="loyaltyChart"></div>
+                </div>
+                <div class="tooltip" id="loyaltyTooltip"></div>
+
+                <div class="legend" id="loyaltyLegend"></div>
+            </div>
+
+            <div id="ComparisonTab" class="tabcontent">
+                <div class="controls">
+                    <div class="control-group">
+                        <label for="comparisonDateRange">Date Range</label>
+                        <select id="comparisonDateRange">
+                            <option value="all">All Dates</option>
+                            <option value="2014-01-06">2014-01-06</option>
+                            <option value="2014-01-07">2014-01-07</option>
+                            <option value="2014-01-08">2014-01-08</option>
+                            <option value="2014-01-09">2014-01-09</option>
+                            <option value="2014-01-10">2014-01-10</option>
+                            <option value="2014-01-11">2014-01-11</option>
+                            <option value="2014-01-12">2014-01-12</option>
+                            <option value="2014-01-13">2014-01-13</option>
+                            <option value="2014-01-14">2014-01-14</option>
+                            <option value="2014-01-15">2014-01-15</option>
+                            <option value="2014-01-16">2014-01-16</option>
+                            <option value="2014-01-17">2014-01-17</option>
+                            <option value="2014-01-18">2014-01-18</option>
+                            <option value="2014-01-19">2014-01-19</option>
+                        </select>
+                    </div>
+
+                    <div class="control-group">
+                        <label for="comparisonTimeInterval">Time Interval</label>
+                        <select id="comparisonTimeInterval">
+                            <option value="1">1 Hour</option>
+                            <option value="2">2 Hours</option>
+                            <option value="3">3 Hours</option>
+                            <option value="4">4 Hours</option>
+                            <option value="6">6 Hours</option>
+                        </select>
+                    </div>
+
+                    <div class="control-group">
+                        <label for="comparisonTopLocations">Show Top Locations</label>
+                        <input type="number" id="comparisonTopLocations" value="5" min="1" max="20">
+                    </div>
+
+                    <div class="control-group">
+                        <button id="updateComparisonChart">Update Chart</button>
+                    </div>
+                </div>
+
+                <div class="comparison-container">
+                    <div class="comparison-chart">
+                        <h3>Credit Card Transaction Frequency</h3>
+                        <div id="creditCardComparisonChart"></div>
+                    </div>
+                    <div class="comparison-chart">
+                        <h3>Loyalty Card Transaction Frequency</h3>
+                        <div id="loyaltyComparisonChart"></div>
+                    </div>
+                </div>
+
+                <div class="comparison-container">
+                    <div class="comparison-chart">
+                        <h3>Time Distribution Comparison</h3>
+                        <div id="timeComparisonChart"></div>
+                    </div>
+                    <div class="comparison-chart">
+                        <h3>Location Distribution Comparison</h3>
+                        <div id="locationComparisonChart"></div>
+                    </div>
+                </div>
+
+                <div class="tooltip" id="comparisonTooltip"></div>
+            </div>
+
+            <div id="VehicleTab" class="tabcontent">
+                <div class="controls">
+                    <div class="control-group">
+                        <label for="vehicleDateRange">Date Range</label>
+                        <select id="vehicleDateRange">
+                            <option value="all">All Dates</option>
+                            <option value="2014-01-06">2014-01-06</option>
+                            <option value="2014-01-07">2014-01-07</option>
+                            <option value="2014-01-08">2014-01-08</option>
+                            <option value="2014-01-09">2014-01-09</option>
+                            <option value="2014-01-10">2014-01-10</option>
+                            <option value="2014-01-11">2014-01-11</option>
+                            <option value="2014-01-12">2014-01-12</option>
+                            <option value="2014-01-13">2014-01-13</option>
+                            <option value="2014-01-14">2014-01-14</option>
+                            <option value="2014-01-15">2014-01-15</option>
+                            <option value="2014-01-16">2014-01-16</option>
+                            <option value="2014-01-17">2014-01-17</option>
+                            <option value="2014-01-18">2014-01-18</option>
+                            <option value="2014-01-19">2014-01-19</option>
+                        </select>
+                    </div>
+
+                    <div class="control-group">
+                        <label for="vehicleTimeInterval">Time Interval</label>
+                        <select id="vehicleTimeInterval">
+                            <option value="1">1 Hour</option>
+                            <option value="2">2 Hours</option>
+                            <option value="3">3 Hours</option>
+                            <option value="4">4 Hours</option>
+                            <option value="6">6 Hours</option>
+                        </select>
+                    </div>
+
+                    <div class="control-group">
+                        <label for="vehicleSortOrder">Sort By</label>
+                        <select id="vehicleSortOrder">
+                            <option value="name">Vehicle ID</option>
+                            <option value="frequency" selected>Activity Frequency</option>
+                        </select>
+                    </div>
+
+                    <div class="control-group">
+                        <label for="topVehicles">Show Top Vehicles</label>
+                        <input type="number" id="topVehicles" value="10" min="1" max="50">
+                    </div>
+
+                    <div class="control-group">
+                        <button id="updateVehicleChart">Update Chart</button>
+                    </div>
+                </div>
+
+                <div class="location-filter">
+                    <h3>Select Vehicles</h3>
+                    <div class="checkbox-container">
+                        <div class="checkbox-group" id="vehicleCheckboxes">
+                            <!-- JavaScript will populate this -->
+                        </div>
+                    </div>
+                </div>
+
+                <div class="chart-container">
+                    <div id="vehicleChart"></div>
+                </div>
+                <div class="tooltip" id="vehicleTooltip"></div>
+
+                <div class="legend" id="vehicleLegend"></div>
+            </div>
+
+            <div id="MapTab" class="tabcontent">
+                <div class="controls">
+                    <div class="control-group">
+                        <label for="mapDateRange">Date Range</label>
+                        <select id="mapDateRange">
+                            <option value="all">All Dates</option>
+                            <option value="2014-01-06">2014-01-06</option>
+                            <option value="2014-01-07">2014-01-07</option>
+                            <option value="2014-01-08">2014-01-08</option>
+                            <option value="2014-01-09">2014-01-09</option>
+                            <option value="2014-01-10">2014-01-10</option>
+                            <option value="2014-01-11">2014-01-11</option>
+                            <option value="2014-01-12">2014-01-12</option>
+                            <option value="2014-01-13">2014-01-13</option>
+                            <option value="2014-01-14">2014-01-14</option>
+                            <option value="2014-01-15">2014-01-15</option>
+                            <option value="2014-01-16">2014-01-16</option>
+                            <option value="2014-01-17">2014-01-17</option>
+                            <option value="2014-01-18">2014-01-18</option>
+                            <option value="2014-01-19">2014-01-19</option>
+                        </select>
+                    </div>
+
+                    <div class="control-group">
+                        <label for="mapTimeRange">Time Range</label>
+                        <select id="mapTimeRange">
+                            <option value="all">All Day</option>
+                            <option value="morning">Morning (06:00-12:00)</option>
+                            <option value="afternoon">Afternoon (12:00-18:00)</option>
+                            <option value="evening">Evening (18:00-00:00)</option>
+                        </select>
+                    </div>
+
+                    <div class="control-group">
+                        <label for="vehicleSelect">Select Vehicle</label>
+                        <select id="vehicleSelect">
+                            <option value="all">All Vehicles</option>
+                            <!-- JavaScript will populate this -->
+                        </select>
+                    </div>
+
+                    <div class="control-group">
+                        <label>Data Layers</label>
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <input type="checkbox" id="showCreditCardPoints" checked>
+                            <label for="showCreditCardPoints" style="margin-right: 10px;">Credit Card</label>
+                            <input type="checkbox" id="showLoyaltyPoints" checked>
+                            <label for="showLoyaltyPoints" style="margin-right: 10px;">Loyalty Card</label>
+                            <input type="checkbox" id="showGPSTraces" checked>
+                            <label for="showGPSTraces">GPS Traces</label>
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <button id="updateMap">Update Map</button>
+                    </div>
+                </div>
+
+                <div id="map"></div>
+
+                <div class="sub-controls">
+                    <button id="showHeatmap">Show Heatmap</button>
+                    <button id="showCluster">Show Clusters</button>
+                    <button id="resetMap">Reset Map</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global state variables
+        let ccData = [];
+        let loyaltyData = [];
+        let gpsData = [];
+        let carCCMapping = {};
+        let locationCoordinates = {};
+        let dataLoaded = {
+            creditCard: false,
+            loyalty: false,
+            gps: false,
+            mapping: false
+        };
+
+        // Helper Functions
+        function showLoader(containerId) {
+            document.getElementById(containerId).innerHTML = `
+                <div class="loading">
+                    <div class="loader"></div>
+                    <span>Loading data...</span>
+                </div>
+            `;
+        }
+
+        function checkAllDataLoaded() {
+            if (dataLoaded.creditCard && dataLoaded.loyalty) {
+                renderComparisonCharts(
+                    ccData,
+                    loyaltyData,
+                    'all',
+                    1,
+                    parseInt(document.getElementById("comparisonTopLocations").value)
+                );
+            }
+
+            if (dataLoaded.creditCard && dataLoaded.mapping) {
+                const initialVehicleData = prepareVehicleData(carCCMapping, ccData, 'all', 1);
+                updateVehicleCheckboxes(initialVehicleData);
+                renderVehicleChart(
+                    initialVehicleData,
+                    getSelectedVehicles(),
+                    document.getElementById("vehicleSortOrder").value,
+                    parseInt(document.getElementById("topVehicles").value)
+                );
+            }
+
+            if (dataLoaded.creditCard && dataLoaded.loyalty && dataLoaded.gps && window.mapInitialized) {
+                updateMap();
+            }
+        }
+
+        // Parse CSV string to array of objects
+        function parseCSV(csvString) {
+            const lines = csvString.trim().split('\n');
+            const headers = lines[0].split(',');
+
+            return lines.slice(1).map(line => {
+                const values = line.split(',');
+                const obj = {};
+
+                headers.forEach((header, index) => {
+                    // Remove possible quotes
+                    let value = values[index];
+                    if (value) {
+                        value = value.replace(/^"(.*)"$/, '$1');
+                    }
+                    obj[header.trim()] = value;
+                });
+
+                return obj;
+            });
+        }
+
+        // Generate sample data if real data cannot be loaded
+        function getSampleCreditCardData() {
+            return `timestamp,location,price,last4ccnum,time,date
+2014-01-06 07:15:00,Brew've Been Served,4.95,1984,07:15:00,2014-01-06
+2014-01-06 08:30:00,Hallowed Grounds,3.75,2359,08:30:00,2014-01-06
+2014-01-06 09:45:00,Coffee Cameleon,5.50,8742,09:45:00,2014-01-06
+2014-01-06 12:15:00,Katerina's Cafe,12.75,5283,12:15:00,2014-01-06
+2014-01-06 13:30:00,Guy's Gyros,8.50,1235,13:30:00,2014-01-06
+2014-01-06 14:45:00,Hippokampos,21.25,9821,14:45:00,2014-01-06
+2014-01-06 17:20:00,Abila Zacharo,3.40,4567,17:20:00,2014-01-06
+2014-01-06 18:35:00,Gelatogalore,5.00,7890,18:35:00,2014-01-06
+2014-01-06 19:50:00,Kalami Kafenion,15.80,2468,19:50:00,2014-01-06
+2014-01-07 07:10:00,Ouzeri Elian,18.25,1357,07:10:00,2014-01-07
+2014-01-07 08:25:00,Bean There Done That,3.75,1984,08:25:00,2014-01-07
+2014-01-07 09:40:00,Jack's Magical Beans,4.50,2359,09:40:00,2014-01-07
+2014-01-07 12:05:00,Brew've Been Served,5.25,8742,12:05:00,2014-01-07
+2014-01-07 13:20:00,Hallowed Grounds,3.50,5283,13:20:00,2014-01-07
+2014-01-07 14:35:00,Coffee Cameleon,6.00,1235,14:35:00,2014-01-07`;
+        }
+
+        function getSampleLoyaltyData() {
+            return `timestamp,location,price,loyaltynum
+2014-01-06 07:30:00,Brew've Been Served,4.95,1001
+2014-01-06 08:45:00,Hallowed Grounds,3.75,1002
+2014-01-06 10:00:00,Coffee Cameleon,5.50,1003
+2014-01-06 12:30:00,Katerina's Cafe,12.75,1004
+2014-01-06 13:45:00,Guy's Gyros,8.50,1005
+2014-01-06 15:00:00,Hippokampos,21.25,1006
+2014-01-06 17:35:00,Abila Zacharo,3.40,1007
+2014-01-06 18:50:00,Gelatogalore,5.00,1008
+2014-01-06 20:05:00,Kalami Kafenion,15.80,1009
+2014-01-07 07:25:00,Ouzeri Elian,18.25,1010
+2014-01-07 08:40:00,Bean There Done That,3.75,1001
+2014-01-07 09:55:00,Jack's Magical Beans,4.50,1002
+2014-01-07 12:20:00,Brew've Been Served,5.25,1003
+2014-01-07 13:35:00,Hallowed Grounds,3.50,1004
+2014-01-07 14:50:00,Coffee Cameleon,6.00,1005`;
+        }
+
+        function getSampleGPSData() {
+            return `Timestamp,id,lat,long
+2014-01-06 07:00:00,101,36.078,24.874
+2014-01-06 07:15:00,101,36.075,24.881
+2014-01-06 07:30:00,101,36.072,24.879
+2014-01-06 07:45:00,101,36.068,24.885
+2014-01-06 08:00:00,102,36.070,24.877
+2014-01-06 08:15:00,102,36.066,24.882
+2014-01-06 08:30:00,102,36.069,24.875
+2014-01-06 08:45:00,102,36.077,24.883
+2014-01-06 09:00:00,103,36.073,24.880
+2014-01-06 09:15:00,103,36.071,24.876
+2014-01-06 09:30:00,103,36.065,24.884
+2014-01-06 09:45:00,103,36.063,24.878`;
+        }
+
+        function getSampleCarCCMapping() {
+            return {
+                "101": {"1984": true, "2359": true},
+                "102": {"8742": true, "5283": true},
+                "103": {"1235": true, "9821": true},
+                "104": {"4567": true, "7890": true},
+                "105": {"2468": true, "1357": true}
+            };
+        }
+
+        // Function to set default location coordinates
+        function setDefaultLocations() {
+            return {
+                "Brew've Been Served": [36.078, 24.874],
+                "Hallowed Grounds": [36.075, 24.881],
+                "Coffee Cameleon": [36.072, 24.879],
+                "Katerina's Cafe": [36.068, 24.885],
+                "Guy's Gyros": [36.070, 24.877],
+                "Hippokampos": [36.066, 24.882],
+                "Abila Zacharo": [36.069, 24.875],
+                "Gelatogalore": [36.077, 24.883],
+                "Kalami Kafenion": [36.073, 24.880],
+                "Ouzeri Elian": [36.071, 24.876],
+                "Bean There Done That": [36.065, 24.884],
+                "Jack's Magical Beans": [36.063, 24.878],
+                "Brewed Awakenings": [36.079, 24.877],
+                "Coffee Shack": [36.067, 24.872]
+            };
+        }
+
+        // Parse time string to decimal hours
+        function parseTime(timeString) {
+            if (!timeString) return 0;
+
+            const [hours, minutes, seconds] = timeString.split(':').map(Number);
+            return hours + minutes/60 + seconds/3600;
+        }
+
+        // Format decimal hours to time string
+        function formatHour(hour) {
+            return `${Math.floor(hour)}:${String(Math.floor((hour % 1) * 60)).padStart(2, '0')}`;
+        }
+
+        // Generate a color for an entity
+        function getColorForEntity(entity, index) {
+            const colors = [
+                "var(--chart-color-1)", "var(--chart-color-2)",
+                "var(--chart-color-3)", "var(--chart-color-4)",
+                "var(--chart-color-5)", "#8c564b", "#e377c2",
+                "#7f7f7f", "#bcbd22", "#17becf", "#aec7e8",
+                "#ffbb78", "#98df8a", "#ff9896", "#c5b0d5"
+            ];
+
+            return colors[index % colors.length];
+        }
+
+        // Normalize date format
+        function normalizeDate(dateStr) {
+            if (!dateStr) return "";
+
+            // Handle MM/DD/YYYY format
+            if (dateStr.includes('/')) {
+                const [month, day, year] = dateStr.split('/');
+                return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+            }
+
+            return dateStr;
+        }
+
+        // Parse date and time from timestamp
+        function parseDateTimeFromTimestamp(timestamp) {
+            if (!timestamp) return { date: "", time: "" };
+
+            // Handle timestamp with time
+            if (timestamp.includes(' ')) {
+                const [date, time] = timestamp.split(' ');
+                return {
+                    date: normalizeDate(date),
+                    time: time
+                };
+            }
+
+            // Date only case
+            return {
+                date: normalizeDate(timestamp),
+                time: "00:00:00"
+            };
+        }
+
+        // Data preparation functions
+        function prepareCreditCardData(data, dateFilter, interval) {
+            // Filter by date
+            const filteredData = dateFilter === 'all' ?
+                data :
+                data.filter(d => d.date === dateFilter);
+
+            // Group by location and time interval
+            const groupedData = {};
+
+            filteredData.forEach(d => {
+                const timeDecimal = parseTime(d.time);
+                const hourInterval = Math.floor(timeDecimal / interval) * interval;
+
+                if (!groupedData[d.location]) {
+                    groupedData[d.location] = {
+                        totalTransactions: 0,
+                        totalAmount: 0,
+                        hourlyData: {}
+                    };
+                }
+
+                if (!groupedData[d.location].hourlyData[hourInterval]) {
+                    groupedData[d.location].hourlyData[hourInterval] = {
+                        count: 0,
+                        amount: 0,
+                        transactions: []
+                    };
+                }
+
+                groupedData[d.location].totalTransactions += 1;
+                groupedData[d.location].totalAmount += parseFloat(d.price);
+                groupedData[d.location].hourlyData[hourInterval].count += 1;
+                groupedData[d.location].hourlyData[hourInterval].amount += parseFloat(d.price);
+                groupedData[d.location].hourlyData[hourInterval].transactions.push(d);
+            });
+
+            return groupedData;
+        }
+
+        function prepareLoyaltyData(data, dateFilter, interval) {
+            // Process data, parse date and time
+            const processedData = data.map(d => {
+                const { date, time } = parseDateTimeFromTimestamp(d.timestamp);
+                return { ...d, date, time };
+            });
+
+            // Filter by date
+            const filteredData = dateFilter === 'all' ?
+                processedData :
+                processedData.filter(d => d.date === dateFilter);
+
+            // Group by location and time interval
+            const groupedData = {};
+
+            filteredData.forEach(d => {
+                // Default to noon if no time available
+                const timeDecimal = d.time ? parseTime(d.time) : 12;
+                const hourInterval = Math.floor(timeDecimal / interval) * interval;
+
+                if (!groupedData[d.location]) {
+                    groupedData[d.location] = {
+                        totalTransactions: 0,
+                        totalAmount: 0,
+                        hourlyData: {}
+                    };
+                }
+
+                if (!groupedData[d.location].hourlyData[hourInterval]) {
+                    groupedData[d.location].hourlyData[hourInterval] = {
+                        count: 0,
+                        amount: 0,
+                        transactions: []
+                    };
+                }
+
+                groupedData[d.location].totalTransactions += 1;
+                groupedData[d.location].totalAmount += parseFloat(d.price);
+                groupedData[d.location].hourlyData[hourInterval].count += 1;
+                groupedData[d.location].hourlyData[hourInterval].amount += parseFloat(d.price);
+                groupedData[d.location].hourlyData[hourInterval].transactions.push(d);
+            });
+
+            return groupedData;
+        }
+
+        function prepareVehicleData(carMapping, ccData, dateFilter, interval) {
+            // Filter credit card data
+            const filteredCCData = dateFilter === 'all' ?
+                ccData :
+                ccData.filter(d => d.date === dateFilter);
+
+            // Create mapping from credit card numbers to transactions
+            const ccTransactions = {};
+            filteredCCData.forEach(transaction => {
+                if (!ccTransactions[transaction.last4ccnum]) {
+                    ccTransactions[transaction.last4ccnum] = [];
+                }
+                ccTransactions[transaction.last4ccnum].push(transaction);
+            });
+
+            // Process vehicle data
+            const vehicleData = {};
+
+            for (const vehicleId in carMapping) {
+                const ccNumbers = carMapping[vehicleId];
+                vehicleData[vehicleId] = {
+                    totalTransactions: 0,
+                    hourlyData: {}
+                };
+
+                // Process each credit card associated with this vehicle
+                for (const ccNum in ccNumbers) {
+                    const transactions = ccTransactions[ccNum] || [];
+
+                    transactions.forEach(transaction => {
+                        const timeDecimal = parseTime(transaction.time);
+                        const hourInterval = Math.floor(timeDecimal / interval) * interval;
+
+                        if (!vehicleData[vehicleId].hourlyData[hourInterval]) {
+                            vehicleData[vehicleId].hourlyData[hourInterval] = {
+                                count: 0,
+                                transactions: []
+                            };
+                        }
+
+                        vehicleData[vehicleId].totalTransactions += 1;
+                        vehicleData[vehicleId].hourlyData[hourInterval].count += 1;
+                        vehicleData[vehicleId].hourlyData[hourInterval].transactions.push(transaction);
+                    });
+                }
+            }
+
+            return vehicleData;
+        }
+
+        // Rendering functions
+        function renderCreditCardChart(data, selectedLocations, sortOrder, topN) {
+            const chartContainer = document.getElementById("creditCardChart");
+            chartContainer.innerHTML = "";
+
+            // Select top N locations
+            let locations = Object.keys(data).filter(loc => selectedLocations.includes(loc));
+
+            if (sortOrder === 'name') {
+                locations.sort();
+            } else if (sortOrder === 'frequency') {
+                locations.sort((a, b) => data[b].totalTransactions - data[a].totalTransactions);
+            } else if (sortOrder === 'amount') {
+                locations.sort((a, b) => data[b].totalAmount - data[a].totalAmount);
+            }
+
+            // Limit display count
+            if (topN && topN > 0) {
+                locations = locations.slice(0, topN);
+            }
+
+            // Set up SVG
+            const margin = {top: 40, right: 20, bottom: 50, left: 60};
+            const width = chartContainer.clientWidth - margin.left - margin.right;
+            const height = chartContainer.clientHeight - margin.top - margin.bottom;
+
+            const svg = d3.select("#creditCardChart")
+                .append("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom)
+                .append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            // Create scales
+            const x = d3.scaleLinear()
+                .domain([0, 24])
+                .range([0, width]);
+
+            const y = d3.scaleLinear()
+                .domain([0, d3.max(locations, loc => {
+                    return d3.max(Object.values(data[loc].hourlyData), d => d.count) || 0;
+                }) || 10])
+                .nice()
+                .range([height, 0]);
+
+            // Add X axis
+            svg.append("g")
+                .attr("transform", `translate(0,${height})`)
+                .call(d3.axisBottom(x)
+                    .tickFormat(d => `${d}:00`)
+                    .ticks(12))
+                .selectAll("text")
+                .attr("transform", "rotate(-45)")
+                .style("text-anchor", "end");
+
+            // Add Y axis
+            svg.append("g")
+                .call(d3.axisLeft(y));
+
+            // Add X axis label
+            svg.append("text")
+                .attr("text-anchor", "middle")
+                .attr("x", width / 2)
+                .attr("y", height + margin.bottom - 5)
+                .style("font-size", "12px")
+                .text("Time (hours)");
+
+            // Add Y axis label
+            svg.append("text")
+                .attr("text-anchor", "middle")
+                .attr("transform", "rotate(-90)")
+                .attr("y", -margin.left + 15)
+                .attr("x", -height / 2)
+                .style("font-size", "12px")
+                .text("Transaction Frequency");
+
+            // Add grid lines
+            svg.append("g")
+                .attr("class", "grid")
+                .call(d3.axisLeft(y)
+                    .tickSize(-width)
+                    .tickFormat(""));
+
+            // Draw lines for each location
+            const tooltip = d3.select("#ccTooltip");
+
+            locations.forEach((location, i) => {
+                const color = getColorForEntity(location, i);
+                const hourlyData = data[location].hourlyData;
+
+                const points = Object.keys(hourlyData).map(hour => {
+                    return {
+                        hour: parseFloat(hour),
+                        count: hourlyData[hour].count,
+                        amount: hourlyData[hour].amount,
+                        transactions: hourlyData[hour].transactions
+                    };
+                }).sort((a, b) => a.hour - b.hour);
+
+                // Add the line
+                svg.append("path")
+                    .datum(points)
+                    .attr("fill", "none")
+                    .attr("stroke", color)
+                    .attr("stroke-width", 2)
+                    .attr("d", d3.line()
+                        .x(d => x(d.hour))
+                        .y(d => y(d.count))
+                        .defined(d => !isNaN(d.count))
+                    );
+
+                // Add data points
+                svg.selectAll(`.point-${i}`)
+                    .data(points)
+                    .enter()
+                    .append("circle")
+                    .attr("class", `point-${i}`)
+                    .attr("cx", d => x(d.hour))
+                    .attr("cy", d => y(d.count))
+                    .attr("r", 5)
+                    .attr("fill", color)
+                    .on("mouseover", function(event, d) {
+                        tooltip.style("display", "block")
+                            .html(`
+                                <strong>${location}</strong><br>
+                                Time: ${formatHour(d.hour)} - ${formatHour(d.hour + parseFloat(document.getElementById("timeInterval").value))}<br>
+                                Transactions: ${d.count}<br>
+                                Total Amount: $${d.amount.toFixed(2)}<br>
+                                <br>
+                                ${d.transactions.slice(0, 5).map(t => `${t.time} - $${t.price} (Card: ${t.last4ccnum})`).join("<br>")}
+                                ${d.transactions.length > 5 ? `<br>...and ${d.transactions.length - 5} more transactions` : ""}
+                            `)
+                            .style("left", (event.pageX + 10) + "px")
+                            .style("top", (event.pageY - 10) + "px");
+
+                        d3.select(this)
+                            .attr("r", 8)
+                            .attr("stroke", "black")
+                            .attr("stroke-width", 2);
+                    })
+                    .on("mouseout", function() {
+                        tooltip.style("display", "none");
+                        d3.select(this)
+                            .attr("r", 5)
+                            .attr("stroke", "none");
+                    });
+            });
+
+            // Update legend
+            const legend = document.getElementById("creditCardLegend");
+            legend.innerHTML = "";
+
+            locations.forEach((location, i) => {
+                const color = getColorForEntity(location, i);
+                const totalTransactions = data[location].totalTransactions;
+                const totalAmount = data[location].totalAmount.toFixed(2);
+
+                const legendItem = document.createElement("div");
+                legendItem.className = "legend-item";
+
+                const colorBox = document.createElement("div");
+                colorBox.className = "legend-color";
+                colorBox.style.backgroundColor = color;
+
+                const legendText = document.createElement("span");
+                legendText.textContent = `${location} (${totalTransactions} trans, $${totalAmount})`;
+
+                legendItem.appendChild(colorBox);
+                legendItem.appendChild(legendText);
+                legend.appendChild(legendItem);
+            });
+        }
+
+        function renderLoyaltyChart(data, selectedLocations, sortOrder, topN) {
+            const chartContainer = document.getElementById("loyaltyChart");
+            chartContainer.innerHTML = "";
+
+            // Select top N locations
+            let locations = Object.keys(data).filter(loc => selectedLocations.includes(loc));
+
+            if (sortOrder === 'name') {
+                locations.sort();
+            } else if (sortOrder === 'frequency') {
+                locations.sort((a, b) => data[b].totalTransactions - data[a].totalTransactions);
+            } else if (sortOrder === 'amount') {
+                locations.sort((a, b) => data[b].totalAmount - data[a].totalAmount);
+            }
+
+            // Limit display count
+            if (topN && topN > 0) {
+                locations = locations.slice(0, topN);
+            }
+
+            // Set up SVG
+            const margin = {top: 40, right: 20, bottom: 50, left: 60};
+            const width = chartContainer.clientWidth - margin.left - margin.right;
+            const height = chartContainer.clientHeight - margin.top - margin.bottom;
+
+            const svg = d3.select("#loyaltyChart")
+                .append("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom)
+                .append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            // Create scales
+            const x = d3.scaleLinear()
+                .domain([0, 24])
+                .range([0, width]);
+
+            const y = d3.scaleLinear()
+                .domain([0, d3.max(locations, loc => {
+                    return d3.max(Object.values(data[loc].hourlyData), d => d.count) || 0;
+                }) || 10])
+                .nice()
+                .range([height, 0]);
+
+            // Add X axis
+            svg.append("g")
+                .attr("transform", `translate(0,${height})`)
+                .call(d3.axisBottom(x)
+                    .tickFormat(d => `${d}:00`)
+                    .ticks(12))
+                .selectAll("text")
+                .attr("transform", "rotate(-45)")
+                .style("text-anchor", "end");
+
+            // Add Y axis
+            svg.append("g")
+                .call(d3.axisLeft(y));
+
+            // Add X axis label
+            svg.append("text")
+                .attr("text-anchor", "middle")
+                .attr("x", width / 2)
+                .attr("y", height + margin.bottom - 5)
+                .style("font-size", "12px")
+                .text("Time (hours)");
+
+            // Add Y axis label
+            svg.append("text")
+                .attr("text-anchor", "middle")
+                .attr("transform", "rotate(-90)")
+                .attr("y", -margin.left + 15)
+                .attr("x", -height / 2)
+                .style("font-size", "12px")
+                .text("Transaction Frequency");
+
+            // Add grid lines
+            svg.append("g")
+                .attr("class", "grid")
+                .call(d3.axisLeft(y)
+                    .tickSize(-width)
+                    .tickFormat(""));
+
+            // Draw lines for each location
+            const tooltip = d3.select("#loyaltyTooltip");
+
+            locations.forEach((location, i) => {
+                const color = getColorForEntity(location, i);
+                const hourlyData = data[location].hourlyData;
+
+                const points = Object.keys(hourlyData).map(hour => {
+                    return {
+                        hour: parseFloat(hour),
+                        count: hourlyData[hour].count,
+                        amount: hourlyData[hour].amount,
+                        transactions: hourlyData[hour].transactions
+                    };
+                }).sort((a, b) => a.hour - b.hour);
+
+                // Add the line
+                svg.append("path")
+                    .datum(points)
+                    .attr("fill", "none")
+                    .attr("stroke", color)
+                    .attr("stroke-width", 2)
+                    .attr("d", d3.line()
+                        .x(d => x(d.hour))
+                        .y(d => y(d.count))
+                        .defined(d => !isNaN(d.count))
+                    );
+
+                // Add data points
+                svg.selectAll(`.lpoint-${i}`)
+                    .data(points)
+                    .enter()
+                    .append("circle")
+                    .attr("class", `lpoint-${i}`)
+                    .attr("cx", d => x(d.hour))
+                    .attr("cy", d => y(d.count))
+                    .attr("r", 5)
+                    .attr("fill", color)
+                    .on("mouseover", function(event, d) {
+                        tooltip.style("display", "block")
+                            .html(`
+                                <strong>${location}</strong><br>
+                                Time: ${formatHour(d.hour)} - ${formatHour(d.hour + parseFloat(document.getElementById("loyaltyTimeInterval").value))}<br>
+                                Transactions: ${d.count}<br>
+                                Total Amount: $${d.amount.toFixed(2)}<br>
+                                <br>
+                                ${d.transactions.slice(0, 5).map(t => `${t.timestamp} - $${t.price} (Loyalty: ${t.loyaltynum})`).join("<br>")}
+                                ${d.transactions.length > 5 ? `<br>...and ${d.transactions.length - 5} more transactions` : ""}
+                            `)
+                            .style("left", (event.pageX + 10) + "px")
+                            .style("top", (event.pageY - 10) + "px");
+
+                        d3.select(this)
+                            .attr("r", 8)
+                            .attr("stroke", "black")
+                            .attr("stroke-width", 2);
+                    })
+                    .on("mouseout", function() {
+                        tooltip.style("display", "none");
+                        d3.select(this)
+                            .attr("r", 5)
+                            .attr("stroke", "none");
+                    });
+            });
+
+            // Update legend
+            const legend = document.getElementById("loyaltyLegend");
+            legend.innerHTML = "";
+
+            locations.forEach((location, i) => {
+                const color = getColorForEntity(location, i);
+                const totalTransactions = data[location].totalTransactions;
+                const totalAmount = data[location].totalAmount.toFixed(2);
+
+                const legendItem = document.createElement("div");
+                legendItem.className = "legend-item";
+
+                const colorBox = document.createElement("div");
+                colorBox.className = "legend-color";
+                colorBox.style.backgroundColor = color;
+
+                const legendText = document.createElement("span");
+                legendText.textContent = `${location} (${totalTransactions} trans, $${totalAmount})`;
+
+                legendItem.appendChild(colorBox);
+                legendItem.appendChild(legendText);
+                legend.appendChild(legendItem);
+            });
+        }
+
+        function renderVehicleChart(data, selectedVehicles, sortOrder, topN) {
+            const chartContainer = document.getElementById("vehicleChart");
+            chartContainer.innerHTML = "";
+
+            // Select top N vehicles
+            let vehicles = Object.keys(data).filter(vid => selectedVehicles.includes(vid));
+
+            if (sortOrder === 'name') {
+                vehicles.sort((a, b) => parseInt(a) - parseInt(b));
+            } else if (sortOrder === 'frequency') {
+                vehicles.sort((a, b) => data[b].totalTransactions - data[a].totalTransactions);
+            }
+
+            // Limit display count
+            if (topN && topN > 0) {
+                vehicles = vehicles.slice(0, topN);
+            }
+
+            // Set up SVG
+            const margin = {top: 40, right: 20, bottom: 50, left: 60};
+            const width = chartContainer.clientWidth - margin.left - margin.right;
+            const height = chartContainer.clientHeight - margin.top - margin.bottom;
+
+            const svg = d3.select("#vehicleChart")
+                .append("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom)
+                .append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            // Create scales
+            const x = d3.scaleLinear()
+                .domain([0, 24])
+                .range([0, width]);
+
+            const y = d3.scaleLinear()
+                .domain([0, d3.max(vehicles, vid => {
+                    return d3.max(Object.values(data[vid].hourlyData), d => d ? d.count : 0) || 1;
+                }) || 10])
+                .nice()
+                .range([height, 0]);
+
+            // Add X axis
+            svg.append("g")
+                .attr("transform", `translate(0,${height})`)
+                .call(d3.axisBottom(x)
+                    .tickFormat(d => `${d}:00`)
+                    .ticks(12))
+                .selectAll("text")
+                .attr("transform", "rotate(-45)")
+                .style("text-anchor", "end");
+
+            // Add Y axis
+            svg.append("g")
+                .call(d3.axisLeft(y));
+
+            // Add X axis label
+            svg.append("text")
+                .attr("text-anchor", "middle")
+                .attr("x", width / 2)
+                .attr("y", height + margin.bottom - 5)
+                .style("font-size", "12px")
+                .text("Time (hours)");
+
+            // Add Y axis label
+            svg.append("text")
+                .attr("text-anchor", "middle")
+                .attr("transform", "rotate(-90)")
+                .attr("y", -margin.left + 15)
+                .attr("x", -height / 2)
+                .style("font-size", "12px")
+                .text("Activity Frequency");
+
+            // Add grid lines
+            svg.append("g")
+                .attr("class", "grid")
+                .call(d3.axisLeft(y)
+                    .tickSize(-width)
+                    .tickFormat(""));
+
+            // Draw lines for each vehicle
+            const tooltip = d3.select("#vehicleTooltip");
+
+            vehicles.forEach((vehicleId, i) => {
+                const color = getColorForEntity(vehicleId, i);
+                const hourlyData = data[vehicleId].hourlyData;
+
+                const points = Object.keys(hourlyData).map(hour => {
+                    return {
+                        hour: parseFloat(hour),
+                        count: hourlyData[hour].count,
+                        transactions: hourlyData[hour].transactions
+                    };
+                }).sort((a, b) => a.hour - b.hour);
+
+                // Add the line
+                svg.append("path")
+                    .datum(points)
+                    .attr("fill", "none")
+                    .attr("stroke", color)
+                    .attr("stroke-width", 2)
+                    .attr("d", d3.line()
+                        .x(d => x(d.hour))
+                        .y(d => y(d.count))
+                        .defined(d => !isNaN(d.count))
+                    );
+
+                // Add data points
+                svg.selectAll(`.vpoint-${i}`)
+                    .data(points)
+                    .enter()
+                    .append("circle")
+                    .attr("class", `vpoint-${i}`)
+                    .attr("cx", d => x(d.hour))
+                    .attr("cy", d => y(d.count))
+                    .attr("r", 5)
+                    .attr("fill", color)
+                    .on("mouseover", function(event, d) {
+                        tooltip.style("display", "block")
+                            .html(`
+                                <strong>Vehicle ID: ${vehicleId}</strong><br>
+                                Time: ${formatHour(d.hour)} - ${formatHour(d.hour + parseFloat(document.getElementById("vehicleTimeInterval").value))}<br>
+                                Activities: ${d.count}<br>
+                                <br>
+                                ${d.transactions.slice(0, 5).map(t => `${t.time} - ${t.location} - $${t.price} (Card: ${t.last4ccnum})`).join("<br>")}
+                                ${d.transactions.length > 5 ? `<br>...and ${d.transactions.length - 5} more transactions` : ""}
+                            `)
+                            .style("left", (event.pageX + 10) + "px")
+                            .style("top", (event.pageY - 10) + "px");
+
+                        d3.select(this)
+                            .attr("r", 8)
+                            .attr("stroke", "black")
+                            .attr("stroke-width", 2);
+                    })
+                    .on("mouseout", function() {
+                        tooltip.style("display", "none");
+                        d3.select(this)
+                            .attr("r", 5)
+                            .attr("stroke", "none");
+                    });
+            });
+
+            // Update legend
+            const legend = document.getElementById("vehicleLegend");
+            legend.innerHTML = "";
+
+            vehicles.forEach((vehicleId, i) => {
+                const color = getColorForEntity(vehicleId, i);
+                const totalTransactions = data[vehicleId].totalTransactions;
+
+                const legendItem = document.createElement("div");
+                legendItem.className = "legend-item";
+
+                const colorBox = document.createElement("div");
+                colorBox.className = "legend-color";
+                colorBox.style.backgroundColor = color;
+
+                const legendText = document.createElement("span");
+                legendText.textContent = `Vehicle ${vehicleId} (${totalTransactions} activities)`;
+
+                legendItem.appendChild(colorBox);
+                legendItem.appendChild(legendText);
+                legend.appendChild(legendItem);
+            });
+        }
+
+        function renderComparisonCharts(ccData, loyaltyData, dateFilter, interval, topN) {
+            // Prepare data
+            const ccPrepared = prepareCreditCardData(ccData, dateFilter, interval);
+            const loyaltyPrepared = prepareLoyaltyData(loyaltyData, dateFilter, interval);
+
+            // Get top N locations
+            const getCombinedTopLocations = (ccData, loyaltyData, n) => {
+                const combinedData = {};
+
+                // Merge credit card data
+                Object.keys(ccData).forEach(loc => {
+                    combinedData[loc] = {
+                        totalCC: ccData[loc].totalTransactions,
+                        totalLoyalty: 0,
+                        total: ccData[loc].totalTransactions
+                    };
+                });
+
+                // Merge loyalty card data
+                Object.keys(loyaltyData).forEach(loc => {
+                    if (!combinedData[loc]) {
+                        combinedData[loc] = {
+                            totalCC: 0,
+                            totalLoyalty: loyaltyData[loc].totalTransactions,
+                            total: loyaltyData[loc].totalTransactions
+                        };
+                    } else {
+                        combinedData[loc].totalLoyalty = loyaltyData[loc].totalTransactions;
+                        combinedData[loc].total += loyaltyData[loc].totalTransactions;
+                    }
+                });
+
+                // Sort by total transactions and return top N
+                return Object.keys(combinedData)
+                    .sort((a, b) => combinedData[b].total - combinedData[a].total)
+                    .slice(0, n);
+            };
+
+            const topLocations = getCombinedTopLocations(ccPrepared, loyaltyPrepared, topN);
+
+            // Render credit card frequency comparison chart
+            renderCreditCardFrequencyChart(ccPrepared, topLocations);
+
+            // Render loyalty card frequency comparison chart
+            renderLoyaltyFrequencyChart(loyaltyPrepared, topLocations);
+
+            // Render time distribution comparison chart
+            renderTimeComparisonChart(ccPrepared, loyaltyPrepared, interval);
+
+            // Render location distribution comparison chart
+            renderLocationComparisonChart(ccPrepared, loyaltyPrepared, topLocations);
+        }
+
+        function renderCreditCardFrequencyChart(data, locations) {
+            const chartContainer = document.getElementById("creditCardComparisonChart");
+            chartContainer.innerHTML = "";
+
+            // Set up SVG
+            const margin = {top: 20, right: 20, bottom: 70, left: 50};
+            const width = chartContainer.clientWidth - margin.left - margin.right;
+            const height = 250 - margin.top - margin.bottom;
+
+            const svg = d3.select("#creditCardComparisonChart")
+                .append("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom)
+                .append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            // Prepare data
+            const chartData = locations.map(loc => {
+                return {
+                    location: loc,
+                    transactions: data[loc] ? data[loc].totalTransactions : 0
+                };
+            });
+
+            // Create scales
+            const x = d3.scaleBand()
+                .domain(locations)
+                .range([0, width])
+                .padding(0.3);
+
+            const y = d3.scaleLinear()
+                .domain([0, d3.max(chartData, d => d.transactions) || 10])
+                .nice()
+                .range([height, 0]);
+
+            // Add X axis
+            svg.append("g")
+                .attr("transform", `translate(0,${height})`)
+                .call(d3.axisBottom(x))
+                .selectAll("text")
+                .attr("transform", "rotate(-45)")
+                .style("text-anchor", "end")
+                .style("font-size", "10px");
+
+            // Add Y axis
+            svg.append("g")
+                .call(d3.axisLeft(y));
+
+            // Add bars
+            svg.selectAll(".bar")
+                .data(chartData)
+                .enter()
+                .append("rect")
+                .attr("class", "bar")
+                .attr("x", d => x(d.location))
+                .attr("y", d => y(d.transactions))
+                .attr("width", x.bandwidth())
+                .attr("height", d => height - y(d.transactions))
+                .attr("fill", "var(--chart-color-1)");
+
+            // Add value labels
+            svg.selectAll(".label")
+                .data(chartData)
+                .enter()
+                .append("text")
+                .attr("class", "label")
+                .attr("x", d => x(d.location) + x.bandwidth() / 2)
+                .attr("y", d => y(d.transactions) - 5)
+                .attr("text-anchor", "middle")
+                .style("font-size", "10px")
+                .text(d => d.transactions);
+        }
+
+        function renderLoyaltyFrequencyChart(data, locations) {
+            const chartContainer = document.getElementById("loyaltyComparisonChart");
+            chartContainer.innerHTML = "";
+
+            // Set up SVG
+            const margin = {top: 20, right: 20, bottom: 70, left: 50};
+            const width = chartContainer.clientWidth - margin.left - margin.right;
+            const height = 250 - margin.top - margin.bottom;
+
+            const svg = d3.select("#loyaltyComparisonChart")
+                .append("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom)
+                .append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            // Prepare data
+            const chartData = locations.map(loc => {
+                return {
+                    location: loc,
+                    transactions: data[loc] ? data[loc].totalTransactions : 0
+                };
+            });
+
+            // Create scales
+            const x = d3.scaleBand()
+                .domain(locations)
+                .range([0, width])
+                .padding(0.3);
+
+            const y = d3.scaleLinear()
+                .domain([0, d3.max(chartData, d => d.transactions) || 10])
+                .nice()
+                .range([height, 0]);
+
+            // Add X axis
+            svg.append("g")
+                .attr("transform", `translate(0,${height})`)
+                .call(d3.axisBottom(x))
+                .selectAll("text")
+                .attr("transform", "rotate(-45)")
+                .style("text-anchor", "end")
+                .style("font-size", "10px");
+
+            // Add Y axis
+            svg.append("g")
+                .call(d3.axisLeft(y));
+
+            // Add bars
+            svg.selectAll(".bar")
+                .data(chartData)
+                .enter()
+                .append("rect")
+                .attr("class", "bar")
+                .attr("x", d => x(d.location))
+                .attr("y", d => y(d.transactions))
+                .attr("width", x.bandwidth())
+                .attr("height", d => height - y(d.transactions))
+                .attr("fill", "var(--chart-color-2)");
+
+            // Add value labels
+            svg.selectAll(".label")
+                .data(chartData)
+                .enter()
+                .append("text")
+                .attr("class", "label")
+                .attr("x", d => x(d.location) + x.bandwidth() / 2)
+                .attr("y", d => y(d.transactions) - 5)
+                .attr("text-anchor", "middle")
+                .style("font-size", "10px")
+                .text(d => d.transactions);
+        }
+
+        function renderTimeComparisonChart(ccData, loyaltyData, interval) {
+            const chartContainer = document.getElementById("timeComparisonChart");
+            chartContainer.innerHTML = "";
+
+            // Set up SVG
+            const margin = {top: 20, right: 20, bottom: 40, left: 50};
+            const width = chartContainer.clientWidth - margin.left - margin.right;
+            const height = 250 - margin.top - margin.bottom;
+
+            const svg = d3.select("#timeComparisonChart")
+                .append("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom)
+                .append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            // Prepare data - count by hour
+            const getHourlyData = (data, interval) => {
+                const hourly = {};
+
+                // Initialize each hour interval
+                for (let h = 0; h < 24; h += parseInt(interval)) {
+                    hourly[h] = 0;
+                }
+
+                // Sum up data from all locations
+                Object.values(data).forEach(locData => {
+                    Object.entries(locData.hourlyData).forEach(([hour, data]) => {
+                        const h = parseFloat(hour);
+                        hourly[h] += data.count;
+                    });
+                });
+
+                return Object.entries(hourly).map(([hour, count]) => {
+                    return { hour: parseFloat(hour), count };
+                }).sort((a, b) => a.hour - b.hour);
+            };
+
+            const ccHourlyData = getHourlyData(ccData, interval);
+            const loyaltyHourlyData = getHourlyData(loyaltyData, interval);
+
+            // Create scales
+            const x = d3.scaleLinear()
+                .domain([0, 24])
+                .range([0, width]);
+
+            const y = d3.scaleLinear()
+                .domain([0, Math.max(
+                    d3.max(ccHourlyData, d => d.count) || 0,
+                    d3.max(loyaltyHourlyData, d => d.count) || 0
+                )])
+                .nice()
+                .range([height, 0]);
+
+            // Add X axis
+            svg.append("g")
+                .attr("transform", `translate(0,${height})`)
+                .call(d3.axisBottom(x)
+                    .tickFormat(d => `${d}:00`)
+                    .ticks(12));
+
+            // Add Y axis
+            svg.append("g")
+                .call(d3.axisLeft(y));
+
+            // Add grid lines
+            svg.append("g")
+                .attr("class", "grid")
+                .call(d3.axisLeft(y)
+                    .tickSize(-width)
+                    .tickFormat(""));
+
+            // Add credit card line
+            svg.append("path")
+                .datum(ccHourlyData)
+                .attr("fill", "none")
+                .attr("stroke", "var(--chart-color-1)")
+                .attr("stroke-width", 2)
+                .attr("d", d3.line()
+                    .x(d => x(d.hour))
+                    .y(d => y(d.count))
+                );
+
+            // Add loyalty card line
+            svg.append("path")
+                .datum(loyaltyHourlyData)
+                .attr("fill", "none")
+                .attr("stroke", "var(--chart-color-2)")
+                .attr("stroke-width", 2)
+                .attr("stroke-dasharray", "5,5")
+                .attr("d", d3.line()
+                    .x(d => x(d.hour))
+                    .y(d => y(d.count))
+                );
+
+            // Add legend
+            const legend = svg.append("g")
+                .attr("transform", `translate(${width - 120}, 10)`);
+
+            legend.append("rect")
+                .attr("width", 15)
+                .attr("height", 15)
+                .attr("fill", "var(--chart-color-1)");
+
+            legend.append("text")
+                .attr("x", 20)
+                .attr("y", 12)
+                .style("font-size", "10px")
+                .text("Credit Card");
+
+            legend.append("rect")
+                .attr("width", 15)
+                .attr("height", 15)
+                .attr("y", 20)
+                .attr("fill", "none")
+                .attr("stroke", "var(--chart-color-2)")
+                .attr("stroke-width", 2)
+                .attr("stroke-dasharray", "5,5");
+
+            legend.append("text")
+                .attr("x", 20)
+                .attr("y", 32)
+                .style("font-size", "10px")
+                .text("Loyalty Card");
+        }
+
+        function renderLocationComparisonChart(ccData, loyaltyData, locations) {
+            const chartContainer = document.getElementById("locationComparisonChart");
+            chartContainer.innerHTML = "";
+
+            // Set up SVG
+            const margin = {top: 20, right: 20, bottom: 70, left: 50};
+            const width = chartContainer.clientWidth - margin.left - margin.right;
+            const height = 250 - margin.top - margin.bottom;
+
+            const svg = d3.select("#locationComparisonChart")
+                .append("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom)
+                .append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            // Prepare data
+            const chartData = locations.map(loc => {
+                return {
+                    location: loc,
+                    ccCount: ccData[loc] ? ccData[loc].totalTransactions : 0,
+                    loyaltyCount: loyaltyData[loc] ? loyaltyData[loc].totalTransactions : 0
+                };
+            });
+
+            // Create scales
+            const x0 = d3.scaleBand()
+                .domain(locations)
+                .range([0, width])
+                .padding(0.2);
+
+            const x1 = d3.scaleBand()
+                .domain(['cc', 'loyalty'])
+                .range([0, x0.bandwidth()])
+                .padding(0.05);
+
+            const y = d3.scaleLinear()
+                .domain([0, d3.max(chartData, d => Math.max(d.ccCount, d.loyaltyCount)) || 10])
+                .nice()
+                .range([height, 0]);
+
+            // Add X axis
+            svg.append("g")
+                .attr("transform", `translate(0,${height})`)
+                .call(d3.axisBottom(x0))
+                .selectAll("text")
+                .attr("transform", "rotate(-45)")
+                .style("text-anchor", "end")
+                .style("font-size", "10px");
+
+            // Add Y axis
+            svg.append("g")
+                .call(d3.axisLeft(y));
+
+            // Add grouped bars
+            const locationGroup = svg.selectAll(".location-group")
+                .data(chartData)
+                .enter()
+                .append("g")
+                .attr("class", "location-group")
+                .attr("transform", d => `translate(${x0(d.location)},0)`);
+
+            // Add credit card bars
+            locationGroup.append("rect")
+                .attr("class", "cc-bar")
+                .attr("x", x1('cc'))
+                .attr("y", d => y(d.ccCount))
+                .attr("width", x1.bandwidth())
+                .attr("height", d => height - y(d.ccCount))
+                .attr("fill", "var(--chart-color-1)");
+
+            // Add loyalty card bars
+            locationGroup.append("rect")
+                .attr("class", "loyalty-bar")
+                .attr("x", x1('loyalty'))
+                .attr("y", d => y(d.loyaltyCount))
+                .attr("width", x1.bandwidth())
+                .attr("height", d => height - y(d.loyaltyCount))
+                .attr("fill", "var(--chart-color-2)");
+
+            // Add legend
+            const legend = svg.append("g")
+                .attr("transform", `translate(${width - 120}, 10)`);
+
+            legend.append("rect")
+                .attr("width", 15)
+                .attr("height", 15)
+                .attr("fill", "var(--chart-color-1)");
+
+            legend.append("text")
+                .attr("x", 20)
+                .attr("y", 12)
+                .style("font-size", "10px")
+                .text("Credit Card");
+
+            legend.append("rect")
+                .attr("width", 15)
+                .attr("height", 15)
+                .attr("y", 20)
+                .attr("fill", "var(--chart-color-2)");
+
+            legend.append("text")
+                .attr("x", 20)
+                .attr("y", 32)
+                .style("font-size", "10px")
+                .text("Loyalty Card");
+        }
+
+        // UI Helper Functions
+        function updateLocationCheckboxes(data, containerId) {
+            const checkboxContainer = document.getElementById(containerId);
+            checkboxContainer.innerHTML = "";
+
+            // Get locations and sort by transaction count
+            const locations = Object.keys(data).sort((a, b) =>
+                data[b].totalTransactions - data[a].totalTransactions
+            );
+
+            locations.forEach(location => {
+                const checkboxItem = document.createElement("div");
+                checkboxItem.className = "checkbox-item";
+
+                const checkbox = document.createElement("input");
+                checkbox.type = "checkbox";
+                checkbox.id = `${containerId}-${location.replace(/\s+/g, '-')}`;
+                checkbox.value = location;
+                checkbox.checked = true; // Default to checked
+
+                const label = document.createElement("label");
+                label.htmlFor = checkbox.id;
+                label.textContent = `${location} (${data[location].totalTransactions})`;
+
+                checkboxItem.appendChild(checkbox);
+                checkboxItem.appendChild(label);
+                checkboxContainer.appendChild(checkboxItem);
+            });
+        }
+
+        function getSelectedLocations(containerId) {
+            const checkboxes = document.querySelectorAll(`#${containerId} input[type='checkbox']`);
+            return Array.from(checkboxes)
+                .filter(cb => cb.checked)
+                .map(cb => cb.value);
+        }
+
+        function updateVehicleCheckboxes(data) {
+            const checkboxContainer = document.getElementById("vehicleCheckboxes");
+            checkboxContainer.innerHTML = "";
+
+            // Get vehicles and sort by activity count
+            const vehicles = Object.keys(data).sort((a, b) =>
+                data[b].totalTransactions - data[a].totalTransactions
+            );
+
+            vehicles.forEach(vehicleId => {
+                const checkboxItem = document.createElement("div");
+                checkboxItem.className = "checkbox-item";
+
+                const checkbox = document.createElement("input");
+                checkbox.type = "checkbox";
+                checkbox.id = `vehicle-${vehicleId}`;
+                checkbox.value = vehicleId;
+                checkbox.checked = data[vehicleId].totalTransactions > 0; // Check if has transactions
+
+                const label = document.createElement("label");
+                label.htmlFor = checkbox.id;
+                label.textContent = `Vehicle ${vehicleId} (${data[vehicleId].totalTransactions})`;
+
+                checkboxItem.appendChild(checkbox);
+                checkboxItem.appendChild(label);
+                checkboxContainer.appendChild(checkboxItem);
+            });
+
+            // Also update map dropdown
+            updateVehicleSelect(vehicles);
+        }
+
+        function getSelectedVehicles() {
+            const checkboxes = document.querySelectorAll("#vehicleCheckboxes input[type='checkbox']");
+            return Array.from(checkboxes)
+                .filter(cb => cb.checked)
+                .map(cb => cb.value);
+        }
+
+        function updateVehicleSelect(vehicles) {
+            const vehicleSelect = document.getElementById("vehicleSelect");
+            vehicleSelect.innerHTML = '<option value="all">All Vehicles</option>';
+
+            vehicles.forEach(vehicleId => {
+                const option = document.createElement("option");
+                option.value = vehicleId;
+                option.textContent = `Vehicle ${vehicleId}`;
+                vehicleSelect.appendChild(option);
+            });
+        }
+
+        // Map Functions
+        function initializeMap() {
+            // Create map
+            const map = L.map('map').setView([36.075, 24.875], 13);
+
+            // Add base layer
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+
+            // Save map instance for later use
+            window.mapInstance = map;
+
+            // Initialize map layer groups
+            window.mapLayers = {
+                creditCard: L.layerGroup().addTo(map),
+                loyalty: L.layerGroup().addTo(map),
+                gps: L.layerGroup().addTo(map),
+                heatmap: L.layerGroup(),
+                cluster: L.layerGroup()
+            };
+
+            // Update map
+            updateMap();
+        }
+
+        function updateMap() {
+            if (!window.mapInstance) return;
+
+            const map = window.mapInstance;
+            const layers = window.mapLayers;
+
+            // Clear existing layers
+            layers.creditCard.clearLayers();
+            layers.loyalty.clearLayers();
+            layers.gps.clearLayers();
+            layers.heatmap.clearLayers();
+            layers.cluster.clearLayers();
+
+            // Get filter conditions
+            const dateFilter = document.getElementById("mapDateRange").value;
+            const timeFilter = document.getElementById("mapTimeRange").value;
+            const vehicleFilter = document.getElementById("vehicleSelect").value;
+            const showCC = document.getElementById("showCreditCardPoints").checked;
+            const showLoyalty = document.getElementById("showLoyaltyPoints").checked;
+            const showGPS = document.getElementById("showGPSTraces").checked;
+
+            // Filter by time range
+            const filterByTimeRange = (timestamp) => {
+                if (timeFilter === 'all') return true;
+
+                const time = timestamp.split(' ')[1];
+                if (!time) return true;
+
+                const hour = parseInt(time.split(':')[0]);
+
+                switch (timeFilter) {
+                    case 'morning': return hour >= 6 && hour < 12;
+                    case 'afternoon': return hour >= 12 && hour < 18;
+                    case 'evening': return hour >= 18 || hour < 6;
+                    default: return true;
+                }
+            };
+
+            // Show credit card transaction points
+            if (showCC && ccData.length > 0) {
+                const filteredCC = ccData.filter(d => {
+                    return (dateFilter === 'all' || d.date === dateFilter) &&
+                           filterByTimeRange(d.timestamp) &&
+                           (vehicleFilter === 'all' ||
+                            (carCCMapping[vehicleFilter] && carCCMapping[vehicleFilter][d.last4ccnum]));
+                });
+
+                filteredCC.forEach(transaction => {
+                    const location = transaction.location;
+                    if (locationCoordinates[location]) {
+                        const [lat, lng] = locationCoordinates[location];
+
+                        const marker = L.circleMarker([lat, lng], {
+                            radius: 5,
+                            fillColor: 'var(--chart-color-1)',
+                            color: '#000',
+                            weight: 1,
+                            opacity: 1,
+                            fillOpacity: 0.8
+                        }).addTo(layers.creditCard);
+
+                        marker.bindPopup(`
+                            <strong>${location}</strong><br>
+                            Time: ${transaction.timestamp}<br>
+                            Amount: $${transaction.price}<br>
+                            Card: ${transaction.last4ccnum}
+                        `);
+                    }
+                });
+            }
+
+            // Show loyalty card transaction points
+            if (showLoyalty && loyaltyData.length > 0) {
+                const filteredLoyalty = loyaltyData.filter(d => {
+                    const { date } = parseDateTimeFromTimestamp(d.timestamp);
+                    return (dateFilter === 'all' || date === dateFilter) &&
+                           filterByTimeRange(d.timestamp);
+                });
+
+                filteredLoyalty.forEach(transaction => {
+                    const location = transaction.location;
+                    if (locationCoordinates[location]) {
+                        const [lat, lng] = locationCoordinates[location];
+
+                        const marker = L.circleMarker([lat, lng], {
+                            radius: 5,
+                            fillColor: 'var(--chart-color-2)',
+                            color: '#000',
+                            weight: 1,
+                            opacity: 1,
+                            fillOpacity: 0.8
+                        }).addTo(layers.loyalty);
+
+                        marker.bindPopup(`
+                            <strong>${location}</strong><br>
+                            Time: ${transaction.timestamp}<br>
+                            Amount: $${transaction.price}<br>
+                            Loyalty Card: ${transaction.loyaltynum}
+                        `);
+                    }
+                });
+            }
+
+            // Show GPS traces
+            if (showGPS && gpsData.length > 0) {
+                // Group by vehicle ID
+                const gpsByVehicle = {};
+
+                gpsData.forEach(point => {
+                    const vehicleId = point.id;
+                    const timestamp = point.Timestamp;
+                    const [date, time] = timestamp.split(' ');
+
+                    // Format date for comparison
+                    const formattedDate = normalizeDate(date);
+
+                    // Apply filter conditions
+                    if ((dateFilter === 'all' || formattedDate === dateFilter) &&
+                        filterByTimeRange(timestamp) &&
+                        (vehicleFilter === 'all' || vehicleId === vehicleFilter)) {
+
+                        if (!gpsByVehicle[vehicleId]) {
+                            gpsByVehicle[vehicleId] = [];
+                        }
+
+                        gpsByVehicle[vehicleId].push([
+                            parseFloat(point.lat),
+                            parseFloat(point.long)
+                        ]);
+                    }
+                });
+
+                // Draw traces for each vehicle
+                Object.entries(gpsByVehicle).forEach(([vehicleId, points], index) => {
+                    if (points.length > 0) {
+                        const color = getColorForEntity(vehicleId, index);
+
+                        // Draw trace line
+                        const polyline = L.polyline(points, {
+                            color: color,
+                            weight: 3,
+                            opacity: 0.7
+                        }).addTo(layers.gps);
+
+                        polyline.bindPopup(`Vehicle ${vehicleId} trace`);
+
+                        // Add start and end markers
+                        const startMarker = L.circleMarker(points[0], {
+                            radius: 5,
+                            fillColor: 'green',
+                            color: '#000',
+                            weight: 1,
+                            opacity: 1,
+                            fillOpacity: 0.8
+                        }).addTo(layers.gps);
+
+                        startMarker.bindPopup(`Vehicle ${vehicleId} start point`);
+
+                        const endMarker = L.circleMarker(points[points.length - 1], {
+                            radius: 5,
+                            fillColor: 'red',
+                            color: '#000',
+                            weight: 1,
+                            opacity: 1,
+                            fillOpacity: 0.8
+                        }).addTo(layers.gps);
+
+                        endMarker.bindPopup(`Vehicle ${vehicleId} end point`);
+                    }
+                });
+            }
+        }
+
+        function simpleHeatmap(map, layers) {
+            // Ensure heatmap layer is cleared
+            layers.heatmap.clearLayers();
+
+            // Collect points from credit card and loyalty card layers
+            const heatPoints = [];
+
+            // Collect points from credit card layer
+            layers.creditCard.eachLayer(layer => {
+                if (layer instanceof L.CircleMarker) {
+                    heatPoints.push([
+                        layer.getLatLng().lat,
+                        layer.getLatLng().lng,
+                        1 // weight
+                    ]);
+                }
+            });
+
+            // Collect points from loyalty card layer
+            layers.loyalty.eachLayer(layer => {
+                if (layer instanceof L.CircleMarker) {
+                    heatPoints.push([
+                        layer.getLatLng().lat,
+                        layer.getLatLng().lng,
+                        1 // weight
+                    ]);
+                }
+            });
+
+            // If there are points, create a simple density visualization
+            if (heatPoints.length > 0) {
+                const pointCounts = {};
+
+                heatPoints.forEach(point => {
+                    const key = `${point[0].toFixed(4)},${point[1].toFixed(4)}`;
+                    pointCounts[key] = (pointCounts[key] || 0) + 1;
+                });
+
+                Object.entries(pointCounts).forEach(([key, count]) => {
+                    const [lat, lng] = key.split(',').map(parseFloat);
+
+                    const radius = Math.min(20, Math.max(5, count * 3));
+                    const opacity = Math.min(0.8, Math.max(0.2, count * 0.1));
+
+                    L.circleMarker([lat, lng], {
+                        radius: radius,
+                        fillColor: '#d62728',
+                        color: '#c51b1b',
+                        weight: 1,
+                        opacity: 1,
+                        fillOpacity: opacity
+                    }).bindPopup(`${count} transactions at this location`).addTo(layers.heatmap);
+                });
+            }
+
+            // Add heatmap layer to map
+            layers.heatmap.addTo(map);
+        }
+
+        function simpleClustering(map, layers) {
+            // Ensure cluster layer is cleared
+            layers.cluster.clearLayers();
+
+            // Collect all points
+            const allPoints = [];
+
+            // Collect points from credit card layer
+            layers.creditCard.eachLayer(layer => {
+                if (layer instanceof L.CircleMarker) {
+                    allPoints.push({
+                        lat: layer.getLatLng().lat,
+                        lng: layer.getLatLng().lng,
+                        type: 'credit',
+                        popup: layer.getPopup()
+                    });
+                }
+            });
+
+            // Collect points from loyalty card layer
+            layers.loyalty.eachLayer(layer => {
+                if (layer instanceof L.CircleMarker) {
+                    allPoints.push({
+                        lat: layer.getLatLng().lat,
+                        lng: layer.getLatLng().lng,
+                        type: 'loyalty',
+                        popup: layer.getPopup()
+                    });
+                }
+            });
+
+            // Simple clustering: group by location
+            const clusters = {};
+
+            allPoints.forEach(point => {
+                const key = `${point.lat.toFixed(4)},${point.lng.toFixed(4)}`;
+
+                if (!clusters[key]) {
+                    clusters[key] = {
+                        lat: point.lat,
+                        lng: point.lng,
+                        points: []
+                    };
+                }
+
+                clusters[key].points.push(point);
+            });
+
+            // Create marker for each cluster
+            Object.values(clusters).forEach(cluster => {
+                const numPoints = cluster.points.length;
+
+                if (numPoints === 1) {
+                    // Don't cluster single points
+                    const point = cluster.points[0];
+                    const color = point.type === 'credit' ? 'var(--chart-color-1)' : 'var(--chart-color-2)';
+
+                    L.circleMarker([point.lat, point.lng], {
+                        radius: 5,
+                        fillColor: color,
+                        color: '#000',
+                        weight: 1,
+                        opacity: 1,
+                        fillOpacity: 0.8
+                    }).bindPopup(point.popup).addTo(layers.cluster);
+                } else {
+                    // Create cluster marker
+                    const marker = L.circleMarker([cluster.lat, cluster.lng], {
+                        radius: Math.min(20, Math.max(10, numPoints * 1.5)),
+                        fillColor: 'var(--chart-color-3)',
+                        color: '#000',
+                        weight: 1,
+                        opacity: 1,
+                        fillOpacity: 0.8
+                    }).addTo(layers.cluster);
+
+                    // Create cluster popup content
+                    const creditCount = cluster.points.filter(p => p.type === 'credit').length;
+                    const loyaltyCount = cluster.points.filter(p => p.type === 'loyalty').length;
+
+                    marker.bindPopup(`
+                        <strong>Transaction Cluster</strong><br>
+                        Total Transactions: ${numPoints}<br>
+                        Credit Card: ${creditCount}<br>
+                        Loyalty Card: ${loyaltyCount}
+                    `);
+                }
+            });
+
+            // Add cluster layer to map
+            layers.cluster.addTo(map);
+        }
+
+        // Function to open tabs
+        function openTab(evt, tabName) {
+            const tabcontent = document.getElementsByClassName("tabcontent");
+            for (let i = 0; i < tabcontent.length; i++) {
+                tabcontent[i].style.display = "none";
+            }
+
+            const tablinks = document.getElementsByClassName("tablinks");
+            for (let i = 0; i < tablinks.length; i++) {
+                tablinks[i].className = tablinks[i].className.replace(" active", "");
+            }
+
+            document.getElementById(tabName).style.display = "block";
+            evt.currentTarget.className += " active";
+
+            // If opening map tab, initialize the map
+            if (tabName === "MapTab" && !window.mapInitialized) {
+                initializeMap();
+                window.mapInitialized = true;
+            }
+        }
+
+        // Initialize event listeners
+        document.addEventListener("DOMContentLoaded", function() {
+            // Initialize UI components with loading messages
+            showLoader("creditCardChart");
+            showLoader("loyaltyChart");
+            showLoader("creditCardComparisonChart");
+            showLoader("loyaltyComparisonChart");
+            showLoader("timeComparisonChart");
+            showLoader("locationComparisonChart");
+            showLoader("vehicleChart");
+
+            // Setup button event listeners
+            document.getElementById("updateChart").addEventListener("click", function() {
+                const dateRange = document.getElementById("dateRange").value;
+                const timeInterval = parseInt(document.getElementById("timeInterval").value);
+                const sortOrder = document.getElementById("sortOrder").value;
+                const topN = parseInt(document.getElementById("topLocations").value);
+
+                const preparedData = prepareCreditCardData(ccData, dateRange, timeInterval);
+                renderCreditCardChart(
+                    preparedData,
+                    getSelectedLocations("locationCheckboxes"),
+                    sortOrder,
+                    topN
+                );
+            });
+
+            document.getElementById("updateLoyaltyChart").addEventListener("click", function() {
+                const dateRange = document.getElementById("loyaltyDateRange").value;
+                const timeInterval = parseInt(document.getElementById("loyaltyTimeInterval").value);
+                const sortOrder = document.getElementById("loyaltySortOrder").value;
+                const topN = parseInt(document.getElementById("loyaltyTopLocations").value);
+
+                const preparedData = prepareLoyaltyData(loyaltyData, dateRange, timeInterval);
+                renderLoyaltyChart(
+                    preparedData,
+                    getSelectedLocations("loyaltyLocationCheckboxes"),
+                    sortOrder,
+                    topN
+                );
+            });
+
+            document.getElementById("updateComparisonChart").addEventListener("click", function() {
+                const dateRange = document.getElementById("comparisonDateRange").value;
+                const timeInterval = parseInt(document.getElementById("comparisonTimeInterval").value);
+                const topN = parseInt(document.getElementById("comparisonTopLocations").value);
+
+                renderComparisonCharts(ccData, loyaltyData, dateRange, timeInterval, topN);
+            });
+
+            document.getElementById("updateVehicleChart").addEventListener("click", function() {
+                const dateRange = document.getElementById("vehicleDateRange").value;
+                const timeInterval = parseInt(document.getElementById("vehicleTimeInterval").value);
+                const sortOrder = document.getElementById("vehicleSortOrder").value;
+                const topN = parseInt(document.getElementById("topVehicles").value);
+
+                const preparedData = prepareVehicleData(carCCMapping, ccData, dateRange, timeInterval);
+                renderVehicleChart(
+                    preparedData,
+                    getSelectedVehicles(),
+                    sortOrder,
+                    topN
+                );
+            });
+
+            document.getElementById("updateMap").addEventListener("click", updateMap);
+            document.getElementById("showHeatmap").addEventListener("click", function() {
+                simpleHeatmap(window.mapInstance, window.mapLayers);
+            });
+            document.getElementById("showCluster").addEventListener("click", function() {
+                simpleClustering(window.mapInstance, window.mapLayers);
+            });
+            document.getElementById("resetMap").addEventListener("click", function() {
+                const map = window.mapInstance;
+                const layers = window.mapLayers;
+
+                map.removeLayer(layers.heatmap);
+                map.removeLayer(layers.cluster);
+
+                layers.heatmap.clearLayers();
+                layers.cluster.clearLayers();
+
+                updateMap();
+            });
+
+            // Load data
+            // 1. Credit Card Data
+            try {
+                const ccDataSample = getSampleCreditCardData();
+                ccData = parseCSV(ccDataSample).map(row => {
+                    return {
+                        timestamp: row.timestamp,
+                        location: row.location,
+                        price: parseFloat(row.price),
+                        last4ccnum: row.last4ccnum,
+                        time: row.time,
+                        date: row.date
+                    };
+                });
+
+                dataLoaded.creditCard = true;
+
+                // Initialize credit card chart
+                const initialCCData = prepareCreditCardData(ccData, 'all', 1);
+                updateLocationCheckboxes(initialCCData, "locationCheckboxes");
+                renderCreditCardChart(
+                    initialCCData,
+                    getSelectedLocations("locationCheckboxes"),
+                    document.getElementById("sortOrder").value,
+                    parseInt(document.getElementById("topLocations").value)
+                );
+
+                checkAllDataLoaded();
+            } catch (error) {
+                console.error('Error initializing credit card data:', error);
+            }
+
+            // 2. Loyalty Card Data
+            try {
+                const loyaltyDataSample = getSampleLoyaltyData();
+                loyaltyData = parseCSV(loyaltyDataSample).map(row => {
+                    const { date, time } = parseDateTimeFromTimestamp(row.timestamp);
+                    return {
+                        timestamp: row.timestamp,
+                        location: row.location,
+                        price: parseFloat(row.price),
+                        loyaltynum: row.loyaltynum,
+                        date,
+                        time
+                    };
+                });
+
+                dataLoaded.loyalty = true;
+
+                // Initialize loyalty card chart
+                const initialLoyaltyData = prepareLoyaltyData(loyaltyData, 'all', 1);
+                updateLocationCheckboxes(initialLoyaltyData, "loyaltyLocationCheckboxes");
+                renderLoyaltyChart(
+                    initialLoyaltyData,
+                    getSelectedLocations("loyaltyLocationCheckboxes"),
+                    document.getElementById("loyaltySortOrder").value,
+                    parseInt(document.getElementById("loyaltyTopLocations").value)
+                );
+
+                checkAllDataLoaded();
+            } catch (error) {
+                console.error('Error initializing loyalty data:', error);
+            }
+
+            // 3. GPS Data
+            try {
+                const gpsDataSample = getSampleGPSData();
+                gpsData = parseCSV(gpsDataSample).map(row => {
+                    return {
+                        Timestamp: row.Timestamp,
+                        id: row.id,
+                        lat: parseFloat(row.lat),
+                        long: parseFloat(row.long)
+                    };
+                });
+
+                dataLoaded.gps = true;
+                checkAllDataLoaded();
+            } catch (error) {
+                console.error('Error initializing GPS data:', error);
+            }
+
+            // 4. Car-CC Mapping Data
+            try {
+                carCCMapping = getSampleCarCCMapping();
+                dataLoaded.mapping = true;
+                checkAllDataLoaded();
+            } catch (error) {
+                console.error('Error initializing car-CC mapping data:', error);
+            }
+
+            // 5. Set Default Locations
+            try {
+                locationCoordinates = setDefaultLocations();
+            } catch (error) {
+                console.error('Error setting default locations:', error);
+            }
+        });
+    </script>
+</body>
+</html>
